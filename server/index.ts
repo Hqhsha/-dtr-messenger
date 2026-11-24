@@ -156,7 +156,7 @@ app.get("/api/users/search", auth, async (req: AuthedRequest, res) => {
 // Chat list query sorts by the latest message timestamp without relying on a SELECT alias.
 app.get("/api/chats", auth, async (req: AuthedRequest, res) => {
   try {
-    const q = await pool.query(`SELECT c.id,c.chat_type,c.title,c.created_at,c.creator_id,c.description,c.invite_code,
+    const q = await pool.query(`SELECT c.id,c.chat_type,c.title,c.created_at,c.creator_id,c.description,c.invite_code,(c.avatar_data IS NOT NULL) AS has_avatar,
       (SELECT body FROM messages WHERE chat_id=c.id ORDER BY created_at DESC LIMIT 1) AS last_message,
       (SELECT created_at FROM messages WHERE chat_id=c.id ORDER BY created_at DESC LIMIT 1) AS last_message_at,
       (SELECT json_agg(json_build_object('id',u.id,'username',u.username,'display_name',u.display_name,'bio',u.bio,'avatar_url',u.avatar_url,'age',u.age,'age_public',u.age_public,'role',u.role,'status_emoji',u.status_emoji,'last_seen_at',u.last_seen_at,'member_role',cm.role) ORDER BY u.display_name) FROM chat_members cm JOIN users u ON u.id=cm.user_id WHERE cm.chat_id=c.id) AS members
@@ -165,7 +165,7 @@ app.get("/api/chats", auth, async (req: AuthedRequest, res) => {
     res.json({ chats: q.rows.map(r => {
       const members = (r.members || []).map((u: any) => ({...publicUser(u, String(u.id) === String(req.userId)),chatRole:u.member_role||"member"}));
       const other = members.find((u: any) => u.id !== String(req.userId));
-      return { chatId:String(r.id), type:r.chat_type || "direct", title:r.title, description:r.description||"", inviteCode:r.invite_code||null, creatorId:r.creator_id?String(r.creator_id):null, user:other || null, members, lastMessage:r.last_message, updatedAt:r.last_message_at || r.created_at };
+      return { chatId:String(r.id), type:r.chat_type || "direct", title:r.title, description:r.description||"", inviteCode:r.invite_code||null, creatorId:r.creator_id?String(r.creator_id):null, avatarUrl:r.has_avatar?"/api/chats/"+r.id+"/avatar":null, user:other || null, members, lastMessage:r.last_message, updatedAt:r.last_message_at || r.created_at };
     }) });
   } catch (e) { console.error("GET /api/chats failed:",e); res.status(500).json({ error:"Не удалось загрузить список чатов" }); }
 });
@@ -232,6 +232,11 @@ app.get("/api/users/:userId/profile", auth, async (req: AuthedRequest, res) => {
   if (!q.rowCount) return res.status(404).json({error:"Пользователь не найден"});
   res.json({user:publicUser(q.rows[0],String(req.userId)===targetId)});
 });
+
+const chatAvatarUpload=multer({storage:multer.memoryStorage(),limits:{fileSize:3*1024*1024},fileFilter:(_req,file,cb)=>/^image\/(png|jpeg|webp|gif)$/.test(file.mimetype)?cb(null,true):cb(new Error("Нужен файл изображения"))});
+app.post("/api/chats/:chatId/avatar",auth,chatAvatarUpload.single("avatar"),async(req:AuthedRequest,res)=>{if(!(await canManageChat(req.params.chatId,String(req.userId))))return res.status(403).json({error:"Изменять аватар может создатель или администратор"});if(!req.file)return res.status(400).json({error:"Выбери изображение"});const q=await pool.query("UPDATE chats SET avatar_data=$1,avatar_mime=$2 WHERE id=$3 AND chat_type IN ('group','channel') RETURNING id",[req.file.buffer,req.file.mimetype,req.params.chatId]);if(!q.rowCount)return res.status(404).json({error:"Группа или канал не найден"});res.json({avatarUrl:"/api/chats/"+req.params.chatId+"/avatar"});});
+app.get("/api/chats/:chatId/avatar",async(req,res)=>{const q=await pool.query("SELECT avatar_data,avatar_mime FROM chats WHERE id=$1",[req.params.chatId]);if(!q.rowCount||!q.rows[0].avatar_data)return res.sendStatus(404);res.setHeader("Content-Type",q.rows[0].avatar_mime||"image/jpeg");res.setHeader("Cache-Control","public, max-age=300");res.send(q.rows[0].avatar_data);});
+
 app.get("/api/chats/:chatId/messages", auth, async (req: AuthedRequest, res) => {
   const member = await pool.query("SELECT 1 FROM chat_members WHERE chat_id=$1 AND user_id=$2", [req.params.chatId, req.userId]);
   if (!member.rowCount) return res.status(403).json({ error: "Нет доступа к чату" });
