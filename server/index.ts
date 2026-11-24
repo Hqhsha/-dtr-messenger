@@ -104,17 +104,18 @@ app.get("/api/users/search", auth, async (req: AuthedRequest, res) => {
 // Chat list query sorts by the latest message timestamp without relying on a SELECT alias.
 app.get("/api/chats", auth, async (req: AuthedRequest, res) => {
   try {
-    const q = await pool.query(`SELECT c.id, c.created_at, u.id AS other_id,u.username,u.display_name,u.bio,u.avatar_url,
+    const q = await pool.query(`SELECT c.id,c.chat_type,c.title,c.created_at,
       (SELECT body FROM messages WHERE chat_id=c.id ORDER BY created_at DESC LIMIT 1) AS last_message,
-      (SELECT created_at FROM messages WHERE chat_id=c.id ORDER BY created_at DESC LIMIT 1) AS last_message_at
+      (SELECT created_at FROM messages WHERE chat_id=c.id ORDER BY created_at DESC LIMIT 1) AS last_message_at,
+      (SELECT json_agg(json_build_object('id',u.id,'username',u.username,'display_name',u.display_name,'bio',u.bio,'avatar_url',u.avatar_url,'age',u.age,'age_public',u.age_public) ORDER BY u.display_name) FROM chat_members cm JOIN users u ON u.id=cm.user_id WHERE cm.chat_id=c.id) AS members
       FROM chats c JOIN chat_members mine ON mine.chat_id=c.id AND mine.user_id=$1
-      JOIN chat_members other ON other.chat_id=c.id AND other.user_id<>$1 JOIN users u ON u.id=other.user_id
       ORDER BY COALESCE((SELECT MAX(created_at) FROM messages WHERE chat_id=c.id),c.created_at) DESC`, [req.userId]);
-    res.json({ chats: q.rows.map(r => ({ chatId: String(r.id), user: publicUser({ id:r.other_id, username:r.username, display_name:r.display_name, bio:r.bio, avatar_url:r.avatar_url }), lastMessage:r.last_message, updatedAt:r.last_message_at || r.created_at })) });
-  } catch (e) {
-    console.error("GET /api/chats failed:", e);
-    res.status(500).json({ error: "Не удалось загрузить список чатов" });
-  }
+    res.json({ chats: q.rows.map(r => {
+      const members = (r.members || []).map((u: any) => publicUser(u, String(u.id) === String(req.userId)));
+      const other = members.find((u: any) => u.id !== String(req.userId));
+      return { chatId:String(r.id), type:r.chat_type || "direct", title:r.title, user:other || null, members, lastMessage:r.last_message, updatedAt:r.last_message_at || r.created_at };
+    }) });
+  } catch (e) { console.error("GET /api/chats failed:",e); res.status(500).json({ error:"Не удалось загрузить список чатов" }); }
 });
 app.post("/api/chats/open", auth, async (req: AuthedRequest, res) => {
   const otherId = String(req.body.userId || "");
@@ -124,7 +125,7 @@ app.post("/api/chats/open", auth, async (req: AuthedRequest, res) => {
     await client.query("BEGIN");
     const exists = await client.query("SELECT id FROM users WHERE id=$1", [otherId]);
     if (!exists.rowCount) { await client.query("ROLLBACK"); return res.status(404).json({ error: "Пользователь не найден" }); }
-    const found = await client.query(`SELECT c.id FROM chats c JOIN chat_members a ON a.chat_id=c.id AND a.user_id=$1 JOIN chat_members b ON b.chat_id=c.id AND b.user_id=$2 WHERE (SELECT COUNT(*) FROM chat_members m WHERE m.chat_id=c.id)=2 LIMIT 1`, [req.userId, otherId]);
+    const found = await client.query(`SELECT c.id FROM chats c JOIN chat_members a ON a.chat_id=c.id AND a.user_id=$1 JOIN chat_members b ON b.chat_id=c.id AND b.user_id=$2 WHERE c.chat_type='direct' AND (SELECT COUNT(*) FROM chat_members m WHERE m.chat_id=c.id)=2 LIMIT 1`, [req.userId, otherId]);
     let chatId = found.rows[0]?.id;
     if (!chatId) {
       const created = await client.query("INSERT INTO chats DEFAULT VALUES RETURNING id");
@@ -134,6 +135,47 @@ app.post("/api/chats/open", auth, async (req: AuthedRequest, res) => {
     await client.query("COMMIT"); res.json({ chatId: String(chatId) });
   } catch (e) { await client.query("ROLLBACK"); console.error(e); res.status(500).json({ error: "Не удалось открыть чат" }); }
   finally { client.release(); }
+});
+app.post("/api/chats/group", auth, async (req: AuthedRequest, res) => {
+  const title = String(req.body.title || "").trim().slice(0,60);
+  const rawIds = Array.isArray(req.body.userIds) ? req.body.userIds.map(String) : [];
+  const userIds = [...new Set(rawIds.filter((id: string) => /^[0-9]+$/.test(id) && id !== req.userId))];
+  if (!title) return res.status(400).json({error:"Укажи название группы"});
+  if (userIds.length < 1 || userIds.length > 19) return res.status(400).json({error:"Добавь от 1 до 19 участников"});
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const found = await client.query("SELECT id FROM users WHERE id=ANY($1::bigint[])",[userIds]);
+    if (found.rowCount !== userIds.length) { await client.query("ROLLBACK"); return res.status(400).json({error:"Один или несколько пользователей не найдены"}); }
+    const created = await client.query("INSERT INTO chats(chat_type,title) VALUES('group',$1) RETURNING id",[title]);
+    const chatId = created.rows[0].id;
+    for (const id of [String(req.userId),...userIds]) await client.query("INSERT INTO chat_members(chat_id,user_id) VALUES($1,$2)",[chatId,id]);
+    await client.query("COMMIT");
+    for (const id of [String(req.userId),...userIds]) io.to("user:"+id).emit("chat:refresh",{chatId:String(chatId)});
+    res.status(201).json({chatId:String(chatId)});
+  } catch(e) { await client.query("ROLLBACK"); console.error("Create group failed:",e); res.status(500).json({error:"Не удалось создать группу"}); }
+  finally { client.release(); }
+});
+app.post("/api/chats/:chatId/members", auth, async (req: AuthedRequest, res) => {
+  const userId = String(req.body.userId || "");
+  if (!/^[0-9]+$/.test(userId)) return res.status(400).json({error:"Некорректный пользователь"});
+  const membership = await pool.query("SELECT c.chat_type FROM chats c JOIN chat_members cm ON cm.chat_id=c.id WHERE c.id=$1 AND cm.user_id=$2",[req.params.chatId,req.userId]);
+  if (!membership.rowCount) return res.status(403).json({error:"Нет доступа к группе"});
+  if (membership.rows[0].chat_type !== "group") return res.status(400).json({error:"Добавлять участников можно только в группу"});
+  const count = await pool.query("SELECT COUNT(*)::int AS count FROM chat_members WHERE chat_id=$1",[req.params.chatId]);
+  if (count.rows[0].count >= 20) return res.status(400).json({error:"В группе максимум 20 участников"});
+  const user = await pool.query("SELECT id FROM users WHERE id=$1",[userId]);
+  if (!user.rowCount) return res.status(404).json({error:"Пользователь не найден"});
+  await pool.query("INSERT INTO chat_members(chat_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING",[req.params.chatId,userId]);
+  const members = await pool.query("SELECT user_id FROM chat_members WHERE chat_id=$1",[req.params.chatId]);
+  for (const m of members.rows) io.to("user:"+m.user_id).emit("chat:refresh",{chatId:String(req.params.chatId)});
+  res.json({ok:true});
+});
+app.get("/api/users/:userId/profile", auth, async (req: AuthedRequest, res) => {
+  if (!/^[0-9]+$/.test(req.params.userId)) return res.sendStatus(404);
+  const q = await pool.query("SELECT id,username,display_name,bio,avatar_url,age,age_public FROM users WHERE id=$1",[req.params.userId]);
+  if (!q.rowCount) return res.status(404).json({error:"Пользователь не найден"});
+  res.json({user:publicUser(q.rows[0],String(req.userId)===String(req.params.userId))});
 });
 app.get("/api/chats/:chatId/messages", auth, async (req: AuthedRequest, res) => {
   const member = await pool.query("SELECT 1 FROM chat_members WHERE chat_id=$1 AND user_id=$2", [req.params.chatId, req.userId]);
