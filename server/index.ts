@@ -85,6 +85,7 @@ app.get("/api/users/search", auth, async (req: AuthedRequest, res) => {
   const q = await pool.query("SELECT id,username,display_name,bio,avatar_url FROM users WHERE id<>$1 AND username ILIKE $2 ORDER BY username LIMIT 20", [req.userId, `%${term}%`]);
   res.json({ users: q.rows.map(publicUser) });
 });
+// Chat list query sorts by the latest message timestamp without relying on a SELECT alias.
 app.get("/api/chats", auth, async (req: AuthedRequest, res) => {
   try {
     const q = await pool.query(`SELECT c.id, c.created_at, u.id AS other_id,u.username,u.display_name,u.bio,u.avatar_url,
