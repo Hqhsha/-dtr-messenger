@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 
-type User = { id:string; username:string; displayName:string; bio:string; avatarUrl:string|null; age:number|null; agePublic:boolean };
+type User = { id:string; username:string; displayName:string; bio:string; avatarUrl:string|null; age:number|null; agePublic:boolean; role?:string; statusEmoji?:string|null; online?:boolean; lastSeenAt?:string|null; theme?:"dark"|"light" };
 type Chat = { chatId:string; type:"direct"|"group"; title:string|null; user:User|null; members:User[]; lastMessage:string|null };
 type Message = { id:string; chatId:string; senderId:string; body:string; createdAt:string; messageType?:"text"|"image"|"audio"; mediaUrl?:string|null; username?:string; displayName?:string };
-type Page = "chat"|"updates"|"settings";
+type Page = "chat"|"updates"|"settings"|"notes"|"support"|"admin";
 type CallSession = {chatId:string;peerId:string;peerName:string;peerAvatar:string|null;video:boolean;status:"incoming"|"calling"|"connecting"|"active";offer?:RTCSessionDescriptionInit};
 const api = async (path:string, token:string|null, options:RequestInit={}) => {
   const headers = new Headers(options.headers);
@@ -53,6 +53,19 @@ export default function App() {
   const [recording,setRecording] = useState(false);
   const [uploadingMedia,setUploadingMedia] = useState(false);
   const [compact,setCompact] = useState(localStorage.getItem("dtr_compact")==="true");
+  const [theme,setTheme] = useState<"dark"|"light">(localStorage.getItem("dtr_theme")==="light"?"light":"dark");
+  const [notes,setNotes] = useState<any[]>([]);
+  const [noteTitle,setNoteTitle] = useState("");
+  const [noteBody,setNoteBody] = useState("");
+  const [tickets,setTickets] = useState<any[]>([]);
+  const [selectedTicket,setSelectedTicket] = useState<any|null>(null);
+  const [supportMessages,setSupportMessages] = useState<any[]>([]);
+  const [supportSubject,setSupportSubject] = useState("");
+  const [supportBody,setSupportBody] = useState("");
+  const [supportCategory,setSupportCategory] = useState("question");
+  const [supportDraft,setSupportDraft] = useState("");
+  const [adminSearch,setAdminSearch] = useState("");
+  const [adminResults,setAdminResults] = useState<User[]>([]);
   const [notificationsEnabled,setNotificationsEnabled] = useState(false);
   const [notificationBusy,setNotificationBusy] = useState(false);
   const [call,setCall] = useState<CallSession|null>(null);
@@ -98,7 +111,9 @@ export default function App() {
   },[profileTarget,editOpen,groupOpen,groupInfoOpen]);
 
   async function refreshChats(){ if(!token)return; try{const d=await api("/chats",token);setChats(d.chats||[]);}catch(e:any){setError(e.message)} }
-  useEffect(()=>{ if(!token)return; api("/me",token).then(d=>{setMe(d.user);setEditName(d.user.displayName);setEditBio(d.user.bio||"");setEditAge(d.user.age===null?"":String(d.user.age));setEditAgePublic(Boolean(d.user.agePublic));}).catch(()=>logout()); refreshChats(); return ()=>{socket?.disconnect()}; },[token,socket]);
+  useEffect(()=>{ if(!token)return; api("/me",token).then(d=>{setMe(d.user);setTheme(d.user.theme==="light"?"light":"dark");localStorage.setItem("dtr_theme",d.user.theme==="light"?"light":"dark");setEditName(d.user.displayName);setEditBio(d.user.bio||"");setEditAge(d.user.age===null?"":String(d.user.age));setEditAgePublic(Boolean(d.user.agePublic));}).catch(()=>logout()); refreshChats(); return ()=>{socket?.disconnect()}; },[token,socket]);
+  useEffect(()=>{document.documentElement.dataset.theme=theme;localStorage.setItem("dtr_theme",theme);},[theme]);
+  useEffect(()=>{if(!socket)return;const presence=(d:any)=>{const update=(u:User|null)=>u&&u.id===String(d.userId)?{...u,online:Boolean(d.online),lastSeenAt:d.lastSeenAt||null}:u;setMe(old=>update(old));setProfileTarget(old=>update(old));setChats(old=>old.map(c=>({...c,user:update(c.user),members:c.members.map(m=>update(m) as User)})));};const role=()=>{if(me)api("/me",token).then(d=>setMe(d.user)).catch(()=>{});};socket.on("presence:update",presence);socket.on("user:role-updated",role);socket.on("support:refresh",()=>{if(page==="support")loadTickets();});return()=>{socket.off("presence:update",presence);socket.off("user:role-updated",role);socket.off("support:refresh");};},[socket,me,token,page]);
   useEffect(()=>{ if(!socket)return; const receive=(m:Message)=>{if(active?.chatId===m.chatId)setMessages(old=>old.some(x=>x.id===m.id)?old:[...old,m]);refreshChats();}; const refresh=()=>refreshChats(); socket.on("chat:message",receive);socket.on("chat:refresh",refresh);return ()=>{socket.off("chat:message",receive);socket.off("chat:refresh",refresh)};},[socket,active,token]);
   useEffect(()=>{if(!token||!("serviceWorker" in navigator)||!("PushManager" in window))return;let live=true;navigator.serviceWorker.register("/sw.js").then(reg=>reg.pushManager.getSubscription()).then(sub=>{if(live)setNotificationsEnabled(Boolean(sub))}).catch(()=>{});return()=>{live=false};},[token]);
   useEffect(()=>{if(!call)return;if(remoteVideoRef.current&&remoteStream)remoteVideoRef.current.srcObject=remoteStream;if(localVideoRef.current&&localStream)localVideoRef.current.srcObject=localStream;},[call,remoteStream,localStream]);
@@ -120,6 +135,19 @@ export default function App() {
   async function viewProfile(user:User|null){if(!user)return;try{const d=await api("/users/"+user.id+"/profile",token);setProfileTarget(d.user);}catch(e:any){setError(e.message)}}
   async function createGroup(){if(!groupTitle.trim()||selectedUsers.length===0)return;setBusy(true);try{const d=await api("/chats/group",token,{method:"POST",body:JSON.stringify({title:groupTitle.trim(),userIds:selectedUsers.map(u=>u.id)})});const c=await api("/chats",token);setChats(c.chats);const chat=c.chats.find((x:Chat)=>x.chatId===d.chatId);if(chat)await selectChat(chat);setGroupOpen(false);setGroupTitle("");setGroupSearch("");setSelectedUsers([]);}catch(e:any){setError(e.message)}finally{setBusy(false)}}
   async function addGroupMember(user:User){if(!active)return;try{await api("/chats/"+active.chatId+"/members",token,{method:"POST",body:JSON.stringify({userId:user.id})});await refreshChats();const c=await api("/chats",token);const updated=c.chats.find((x:Chat)=>x.chatId===active.chatId);if(updated)setActive(updated);setGroupAddSearch("");setGroupAddResults([]);}catch(e:any){setError(e.message)}}
+
+  async function changeTheme(next:"dark"|"light"){setTheme(next);try{const d=await api("/profile/preferences",token,{method:"PATCH",body:JSON.stringify({theme:next})});setMe(d.user);}catch(e:any){setError(e.message);}}
+  async function setStatusEmoji(statusEmoji:string|null){try{const d=await api("/profile/status",token,{method:"PATCH",body:JSON.stringify({statusEmoji})});setMe(d.user);}catch(e:any){setError(e.message);}}
+  async function loadNotes(){try{const d=await api("/notes",token);setNotes(d.notes||[]);}catch(e:any){setError(e.message);}}
+  async function saveNote(){if(!noteTitle.trim()&&!noteBody.trim())return;try{await api("/notes",token,{method:"POST",body:JSON.stringify({title:noteTitle,body:noteBody})});setNoteTitle("");setNoteBody("");await loadNotes();}catch(e:any){setError(e.message);}}
+  async function deleteNote(id:string){try{await api("/notes/"+id,token,{method:"DELETE"});setNotes(old=>old.filter(n=>n.id!==id));}catch(e:any){setError(e.message);}}
+  async function loadTickets(){try{const d=await api("/support/tickets",token);setTickets(d.tickets||[]);}catch(e:any){setError(e.message);}}
+  async function openTicket(ticket:any){setSelectedTicket(ticket);try{const d=await api("/support/tickets/"+ticket.id+"/messages",token);setSupportMessages(d.messages||[]);}catch(e:any){setError(e.message);}}
+  async function createTicket(){if(!supportSubject.trim()||!supportBody.trim())return;try{const d=await api("/support/tickets",token,{method:"POST",body:JSON.stringify({subject:supportSubject,body:supportBody,category:supportCategory})});setSupportSubject("");setSupportBody("");await loadTickets();await openTicket(d.ticket);}catch(e:any){setError(e.message);}}
+  async function sendSupportReply(){if(!selectedTicket||!supportDraft.trim())return;const body=supportDraft.trim();setSupportDraft("");try{await api("/support/tickets/"+selectedTicket.id+"/messages",token,{method:"POST",body:JSON.stringify({body})});await openTicket(selectedTicket);await loadTickets();}catch(e:any){setSupportDraft(body);setError(e.message);}}
+  async function updateTicketStatus(status:string){if(!selectedTicket)return;try{await api("/support/tickets/"+selectedTicket.id+"/status",token,{method:"PATCH",body:JSON.stringify({status})});setSelectedTicket({...selectedTicket,status});await loadTickets();}catch(e:any){setError(e.message);}}
+  async function assignRole(user:User,role:string){try{await api("/admin/users/"+user.id+"/role",token,{method:"PATCH",body:JSON.stringify({role})});setAdminResults(old=>old.map(u=>u.id===user.id?{...u,role}:u));if(profileTarget?.id===user.id)setProfileTarget({...profileTarget,role});}catch(e:any){setError(e.message);}}
+
   function toggleCompact(){const next=!compact;setCompact(next);localStorage.setItem("dtr_compact",String(next));}
   function finishCall(notifyPeer=true){if(notifyPeer&&call&&socket)socket.emit("call:end",{to:call.peerId,chatId:call.chatId});pcRef.current?.close();pcRef.current=null;localStreamRef.current?.getTracks().forEach(track=>track.stop());localStreamRef.current=null;pendingIceRef.current=[];setLocalStream(null);setRemoteStream(null);setCall(null);setMicMuted(false);setCameraOff(false);setSpeakerOn(false);}
   function makePeer(peerId:string,chatId:string){const pc=new RTCPeerConnection({iceServers:[{urls:"stun:stun.l.google.com:19302"}]});pcRef.current=pc;pc.onicecandidate=e=>{if(e.candidate)socket?.emit("call:ice",{to:peerId,chatId,candidate:e.candidate.toJSON()});};pc.ontrack=e=>{if(e.streams[0])setRemoteStream(e.streams[0]);};pc.onconnectionstatechange=()=>{if(pc.connectionState==="connected")setCall(old=>old?{...old,status:"active"}:old);if(pc.connectionState==="failed")setError("Не удалось соединить устройства. Попробуй ещё раз.");};return pc;}
