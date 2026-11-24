@@ -172,10 +172,11 @@ app.post("/api/chats/:chatId/members", auth, async (req: AuthedRequest, res) => 
   res.json({ok:true});
 });
 app.get("/api/users/:userId/profile", auth, async (req: AuthedRequest, res) => {
-  if (!/^[0-9]+$/.test(req.params.userId)) return res.sendStatus(404);
-  const q = await pool.query("SELECT id,username,display_name,bio,avatar_url,age,age_public FROM users WHERE id=$1",[req.params.userId]);
+  const targetId = String(req.params.userId);
+  if (!/^[0-9]+$/.test(targetId)) return res.sendStatus(404);
+  const q = await pool.query("SELECT id,username,display_name,bio,avatar_url,age,age_public FROM users WHERE id=$1",[targetId]);
   if (!q.rowCount) return res.status(404).json({error:"Пользователь не найден"});
-  res.json({user:publicUser(q.rows[0],String(req.userId)===String(req.params.userId))});
+  res.json({user:publicUser(q.rows[0],String(req.userId)===targetId)});
 });
 app.get("/api/chats/:chatId/messages", auth, async (req: AuthedRequest, res) => {
   const member = await pool.query("SELECT 1 FROM chat_members WHERE chat_id=$1 AND user_id=$2", [req.params.chatId, req.userId]);
