@@ -81,7 +81,7 @@ const mediaUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize
 app.post("/api/profile/avatar", auth, avatarUpload.single("avatar"), async (req: AuthedRequest, res) => {
   if (!req.file) return res.status(400).json({ error: "Выбери PNG, JPG, WEBP или GIF до 5 МБ" });
   const q = await pool.query("UPDATE users SET avatar_url=$1,avatar_data=$2,avatar_mime=$3 WHERE id=$4 RETURNING *", [`db:${Date.now()}`, req.file.buffer, req.file.mimetype, req.userId]);
-  res.json({ user: publicUser(q.rows[0]) });
+  res.json({ user: publicUser(q.rows[0], true) });
 });
 app.get("/api/users/:userId/avatar", async (req, res) => {
   if (!/^\\d+$/.test(req.params.userId)) return res.sendStatus(404);
