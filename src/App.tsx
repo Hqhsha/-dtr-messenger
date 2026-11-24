@@ -39,7 +39,10 @@ export default function App() {
   const [active,setActive] = useState<Chat|null>(null);
   const [messages,setMessages] = useState<Message[]>([]);
   const [feedPosts,setFeedPosts]=useState<any[]>([]);const [feedDraft,setFeedDraft]=useState("");const [feedComments,setFeedComments]=useState<Record<string,any[]>>({});const [commentDrafts,setCommentDrafts]=useState<Record<string,string>>({});const [stories,setStories]=useState<any[]>([]);const [storyDraft,setStoryDraft]=useState("");
-  const [search,setSearch] = useState("");\n  const [searchOpen,setSearchOpen]=useState(false);\n  const [reactionTarget,setReactionTarget]=useState<string|null>(null);\n  const [storyVideo,setStoryVideo]=useState<File|null>(null);
+  const [search,setSearch] = useState("");
+  const [searchOpen,setSearchOpen]=useState(false);
+  const [reactionTarget,setReactionTarget]=useState<string|null>(null);
+  const [storyVideo,setStoryVideo]=useState<File|null>(null);
   const [results,setResults] = useState<User[]>([]);
   const [draft,setDraft] = useState("");
   const [emojiOpen,setEmojiOpen] = useState(false);
@@ -91,7 +94,9 @@ export default function App() {
   const audioContextRef = useRef<AudioContext|null>(null);
   const audioSourceRef = useRef<MediaStreamAudioSourceNode|null>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
-  const photoInput = useRef<HTMLInputElement>(null);\n  const videoInput = useRef<HTMLInputElement>(null);\n  const storyMediaInput = useRef<HTMLInputElement>(null);
+  const photoInput = useRef<HTMLInputElement>(null);
+  const videoInput = useRef<HTMLInputElement>(null);
+  const storyMediaInput = useRef<HTMLInputElement>(null);
   const stickerInput = useRef<HTMLInputElement>(null);
   const recorder = useRef<MediaRecorder|null>(null);
   const recorderChunks = useRef<Blob[]>([]);
