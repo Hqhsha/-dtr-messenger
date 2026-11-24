@@ -275,6 +275,32 @@ app.post("/api/chats/:chatId/messages", auth, async (req: AuthedRequest, res) =>
   void pushChatMembers(String(String(req.params.chatId)),String(req.userId),{title:sender.rows[0]?.display_name||"Новое сообщение",body:body.slice(0,140),url:"/",tag:"chat-"+String(req.params.chatId)});
   res.status(201).json({ message });
 });
+app.post("/api/chats/:chatId/forward/:messageId", auth, async (req: AuthedRequest, res) => {
+  const chatId=String(req.params.chatId), messageId=String(req.params.messageId);
+  if(await restriction(String(req.userId),"ban"))return res.status(403).json({error:"Аккаунт заблокирован"});
+  if(await restriction(String(req.userId),"mute"))return res.status(403).json({error:"Вам временно запрещено отправлять сообщения"});
+  const access=await pool.query("SELECT 1 FROM chat_members WHERE chat_id=$1 AND user_id=$2",[chatId,req.userId]);
+  if(!access.rowCount)return res.status(403).json({error:"Нет доступа к чату"});
+  const source=await pool.query("SELECT m.id,m.body,m.message_type,u.display_name,mm.mime_type,mm.file_name,mm.file_size,mm.data FROM messages m JOIN chat_members cm ON cm.chat_id=m.chat_id AND cm.user_id=$2 JOIN users u ON u.id=m.sender_id LEFT JOIN message_media mm ON mm.message_id=m.id WHERE m.id=$1 AND m.message_type IN ('text','image','video','audio') AND COALESCE(m.deleted_at IS NULL,true)",[messageId,req.userId]);
+  if(!source.rowCount)return res.status(404).json({error:"Исходное сообщение не найдено"});
+  const src=source.rows[0];
+  const forwardedBody=("↪ Переслано"+(src.display_name?" от "+src.display_name:"")+"\n"+String(src.body||"")).slice(0,4000);
+  const client=await pool.connect();
+  let inserted:any;
+  try{
+    await client.query("BEGIN");
+    const q=await client.query("INSERT INTO messages(chat_id,sender_id,body,message_type) VALUES($1,$2,$3,$4) RETURNING id,chat_id,body,message_type,created_at",[chatId,req.userId,forwardedBody,src.message_type]);
+    inserted=q.rows[0];
+    if(src.data)await client.query("INSERT INTO message_media(message_id,mime_type,file_name,file_size,data) VALUES($1,$2,$3,$4,$5)",[inserted.id,src.mime_type,src.file_name,src.file_size,src.data]);
+    await client.query("COMMIT");
+  }catch(err){await client.query("ROLLBACK");throw err;}finally{client.release();}
+  const sender=await pool.query("SELECT username,display_name FROM users WHERE id=$1",[req.userId]);
+  const message={id:String(inserted.id),chatId,senderId:String(req.userId),body:inserted.body,messageType:inserted.message_type,mediaUrl:inserted.message_type==="text"?null:`/api/messages/${inserted.id}/media`,createdAt:inserted.created_at,username:sender.rows[0]?.username,displayName:sender.rows[0]?.display_name};
+  const members=await pool.query("SELECT user_id FROM chat_members WHERE chat_id=$1",[chatId]);
+  for(const m of members.rows)io.to(`user:${m.user_id}`).emit("chat:message",message);
+  void pushChatMembers(chatId,String(req.userId),{title:sender.rows[0]?.display_name||"Пересланное сообщение",body:src.message_type==="image"?"Переслал(а) фото":src.message_type==="video"?"Переслал(а) видео":src.message_type==="audio"?"Переслал(а) голосовое сообщение":forwardedBody.slice(0,140),url:"/",tag:"chat-"+chatId});
+  res.status(201).json({message});
+});
 app.patch("/api/messages/:messageId",auth,async(req:AuthedRequest,res)=>{const body=String(req.body.body||"").trim();if(!body||body.length>4000)return res.status(400).json({error:"Сообщение должно быть от 1 до 4000 символов"});const q=await pool.query("UPDATE messages m SET body=$3,edited_at=NOW() FROM chat_members cm WHERE m.id=$1 AND cm.chat_id=m.chat_id AND cm.user_id=$2 AND m.sender_id=$2 AND m.message_type='text' AND m.created_at>NOW()-INTERVAL '24 hours' RETURNING m.id,m.chat_id,m.body,m.edited_at",[String(req.params.messageId),req.userId,body]);if(!q.rowCount)return res.status(404).json({error:"Сообщение не найдено или уже нельзя изменить"});const m=q.rows[0];const members=await pool.query("SELECT user_id FROM chat_members WHERE chat_id=$1",[String(m.chat_id)]);for(const x of members.rows)io.to("user:"+x.user_id).emit("chat:message-edited",{id:String(m.id),chatId:String(m.chat_id),body:m.body,editedAt:m.edited_at});res.json({message:{id:String(m.id),body:m.body,editedAt:m.edited_at}});});
 app.delete("/api/messages/:messageId",auth,async(req:AuthedRequest,res)=>{const q=await pool.query("UPDATE messages m SET body='Сообщение удалено',deleted_at=NOW(),edited_at=NULL WHERE m.id=$1 AND m.sender_id=$2 AND m.message_type='text' AND m.deleted_at IS NULL RETURNING m.id,m.chat_id,m.body",[String(req.params.messageId),req.userId]);if(!q.rowCount)return res.status(404).json({error:"Сообщение не найдено или уже удалено"});const m=q.rows[0];const members=await pool.query("SELECT user_id FROM chat_members WHERE chat_id=$1",[String(m.chat_id)]);for(const x of members.rows)io.to("user:"+x.user_id).emit("chat:message-edited",{id:String(m.id),chatId:String(m.chat_id),body:m.body,deleted:true});res.json({ok:true});});
 app.post("/api/chats/:chatId/media", auth, mediaUpload.single("media"), async (req: AuthedRequest, res) => {
