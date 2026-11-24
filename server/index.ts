@@ -21,6 +21,8 @@ const pool = new Pool({
   ...(process.env.NODE_ENV === "production" ? { ssl: { rejectUnauthorized: false } } : {}),
 });
 const JWT_SECRET = process.env.JWT_SECRET;
+const schemaReady = pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_data BYTEA, ADD COLUMN IF NOT EXISTS avatar_mime TEXT");
+
 if (!JWT_SECRET || JWT_SECRET.length < 32) throw new Error("JWT_SECRET must contain at least 32 characters");
 app.use(cors({ origin: allowedOrigins }));
 app.use(express.json({ limit: "1mb" }));
@@ -71,13 +73,23 @@ app.patch("/api/profile", auth, async (req: AuthedRequest, res) => {
   res.json({ user: publicUser(q.rows[0]) });
 });
 const storage = multer.diskStorage({ destination: uploadDir, filename: (req, file, cb) => cb(null, `${(req as AuthedRequest).userId}-${Date.now()}${path.extname(file.originalname).toLowerCase()}`) });
-const avatarUpload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 }, fileFilter: (_req, file, cb) => cb(null, ["image/png","image/jpeg","image/webp","image/gif"].includes(file.mimetype)) });
+const avatarUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 }, fileFilter: (_req, file, cb) => cb(null, ["image/png","image/jpeg","image/webp","image/gif"].includes(file.mimetype)) });
 const mediaUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 }, fileFilter: (_req, file, cb) => cb(null, ["image/png","image/jpeg","image/webp","image/gif","audio/webm","audio/ogg","audio/mp4","audio/mpeg","audio/wav","audio/x-wav","audio/mp4a-latm"].includes(file.mimetype.split(";")[0])) });
 app.post("/api/profile/avatar", auth, avatarUpload.single("avatar"), async (req: AuthedRequest, res) => {
   if (!req.file) return res.status(400).json({ error: "Выбери PNG, JPG, WEBP или GIF до 5 МБ" });
-  const url = `/uploads/${req.file.filename}`;
-  const q = await pool.query("UPDATE users SET avatar_url=$1 WHERE id=$2 RETURNING *", [url, req.userId]);
+  const q = await pool.query("UPDATE users SET avatar_url=$1,avatar_data=$2,avatar_mime=$3 WHERE id=$4 RETURNING *", [`db:${Date.now()}`, req.file.buffer, req.file.mimetype, req.userId]);
   res.json({ user: publicUser(q.rows[0]) });
+});
+app.get("/api/users/:userId/avatar", async (req, res) => {
+  if (!/^\\d+$/.test(req.params.userId)) return res.sendStatus(404);
+  try {
+    const q = await pool.query("SELECT avatar_url,avatar_data,avatar_mime FROM users WHERE id=$1", [req.params.userId]);
+    if (!q.rowCount || !q.rows[0].avatar_url) return res.sendStatus(404);
+    const user = q.rows[0];
+    if (user.avatar_data) { res.setHeader("Content-Type", user.avatar_mime || "application/octet-stream"); res.setHeader("Cache-Control", "public, max-age=300"); return res.send(user.avatar_data); }
+    if (String(user.avatar_url).startsWith("/uploads/")) return res.redirect(user.avatar_url);
+    return res.sendStatus(404);
+  } catch (e) { console.error("GET avatar failed:", e); return res.sendStatus(500); }
 });
 
 app.get("/api/users/search", auth, async (req: AuthedRequest, res) => {
@@ -180,4 +192,4 @@ if (fs.existsSync(clientDist)) {
 }
 
 const port = Number(process.env.PORT || 3001);
-httpServer.listen(port, () => console.log(`дтр API listening on :${port}`));
+schemaReady.then(() => httpServer.listen(port, () => console.log(`дтр API listening on :${port}`))).catch(error => { console.error("Database schema initialization failed:", error); process.exit(1); });
