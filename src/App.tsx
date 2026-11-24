@@ -45,6 +45,9 @@ export default function App() {
   const [searchOpen,setSearchOpen]=useState(false);
   const [reactionTarget,setReactionTarget]=useState<string|null>(null);
   const [messageMenuId,setMessageMenuId]=useState<string|null>(null);
+  useEffect(()=>{if(!messageMenuId)return;const closeOutside=(event:MouseEvent)=>{const target=event.target as Element|null;if(!target?.closest(".message-actions"))setMessageMenuId(null);};const closeEscape=(event:KeyboardEvent)=>{if(event.key==="Escape")setMessageMenuId(null);};document.addEventListener("pointerdown",closeOutside);document.addEventListener("keydown",closeEscape);return()=>{document.removeEventListener("pointerdown",closeOutside);document.removeEventListener("keydown",closeEscape);};},[messageMenuId]);
+  useEffect(()=>{setMessageMenuId(null);},[active?.chatId]);
+
   const [storyVideo,setStoryVideo]=useState<File|null>(null);
   const [results,setResults] = useState<User[]>([]);
   const [draft,setDraft] = useState("");
