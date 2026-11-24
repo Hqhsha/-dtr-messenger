@@ -294,3 +294,30 @@ button{transition:background-color .12s ease,color .12s ease}
  .message-action-items{min-width:164px;top:calc(100% + 4px)}
  .message-action-items button{min-height:40px;font-size:13px}
 }
+
+
+/* Message bubbles and reactions: tighter Telegram-inspired rhythm */
+.bubble{border-radius:12px 12px 12px 4px;position:relative;box-shadow:0 1px 1px #0002}
+.bubble.mine{border-radius:12px 12px 4px 12px}
+.bubble p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.42}
+.bubble .sender-name{display:block;margin:0 0 4px;font-size:11px;font-weight:600;color:#72b9ee}
+.bubble .message-edited{display:inline-block;margin:2px 0 0 5px;font-size:9px;color:#9aaebd}
+.bubble .message-meta{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin:3px 0 -2px;min-height:14px}
+.bubble .message-meta time{font-size:10px;line-height:12px;color:#9baebc}
+.bubble.mine .message-meta time{color:#a8c6d8}
+.bubble .read-receipt{font-size:10px;line-height:12px;color:#91a8b8}
+.bubble .read-receipt.read{color:#6ec7f5}
+.bubble .message-reactions{display:flex;align-items:center;gap:3px;flex-wrap:wrap;margin-left:3px}
+.bubble .reaction-chip{display:inline-flex;align-items:center;gap:3px;min-height:21px;padding:2px 6px;border:1px solid #ffffff18;border-radius:12px;background:#263746;color:#dceaf4;font-size:11px;line-height:15px}
+.bubble .reaction-chip.mine-reaction{background:#315b78;border-color:#5b9ac2;color:#fff}
+.bubble .reaction-open-btn{display:grid;place-items:center;width:22px;height:22px;border:1px solid #ffffff18;border-radius:50%;background:#263746;color:#b8c9d6;font-size:15px;line-height:1}
+.bubble .reaction-popover{display:flex;gap:4px;flex-wrap:nowrap;max-width:calc(100vw - 40px);padding:6px;border:1px solid #344958;border-radius:18px;background:#182633;box-shadow:0 8px 24px #0008}
+.bubble .reaction-popover button{display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:50%;background:transparent;font-size:18px}
+.bubble .reaction-popover button:hover{background:#ffffff16}
+@media(max-width:700px){
+ .bubble{padding:8px 10px;max-width:88%}
+ .bubble .message-meta{gap:3px}
+ .bubble .message-reactions{margin-left:2px}
+ .bubble .reaction-popover{gap:2px;padding:5px}
+ .bubble .reaction-popover button{width:27px;height:27px}
+}
