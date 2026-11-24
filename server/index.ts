@@ -234,6 +234,17 @@ app.post("/api/chats/:chatId/members", auth, async (req: AuthedRequest, res) => 
   for (const m of members.rows) io.to("user:"+m.user_id).emit("chat:refresh",{chatId:String(String(req.params.chatId))});
   res.json({ok:true});
 });
+app.post("/api/chats/:chatId/leave", auth, async (req: AuthedRequest, res) => {
+  const chatId=String(req.params.chatId), userId=String(req.userId);
+  const membership=await pool.query("SELECT c.chat_type,c.creator_id FROM chats c JOIN chat_members cm ON cm.chat_id=c.id WHERE c.id=$1 AND cm.user_id=$2",[chatId,userId]);
+  if(!membership.rowCount)return res.status(404).json({error:"Вы не состоите в этом чате"});
+  if(membership.rows[0].chat_type!=="group")return res.status(400).json({error:"Покинуть можно только группу"});
+  if(String(membership.rows[0].creator_id)===userId)return res.status(400).json({error:"Создатель группы не может выйти. Сначала передайте права администратора другому участнику."});
+  await pool.query("DELETE FROM chat_members WHERE chat_id=$1 AND user_id=$2",[chatId,userId]);
+  const members=await pool.query("SELECT user_id FROM chat_members WHERE chat_id=$1",[chatId]);
+  for(const m of members.rows)io.to("user:"+m.user_id).emit("chat:refresh",{chatId});
+  res.json({ok:true});
+});
 app.get("/api/users/:userId/profile", auth, async (req: AuthedRequest, res) => {
   const targetId = String(String(req.params.userId));
   if (!/^[0-9]+$/.test(targetId)) return res.sendStatus(404);
