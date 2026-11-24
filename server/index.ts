@@ -63,7 +63,7 @@ app.post("/api/auth/login", async (req, res) => {
 app.get("/api/me", auth, async (req: AuthedRequest, res) => {
   const q = await pool.query("SELECT * FROM users WHERE id=$1", [req.userId]);
   if (!q.rowCount) return res.status(404).json({ error: "Пользователь не найден" });
-  res.json({ user: publicUser(q.rows[0]) });
+  res.json({ user: publicUser(q.rows[0], true) });
 });
 app.patch("/api/profile", auth, async (req: AuthedRequest, res) => {
   const displayName = String(req.body.displayName || "").trim().slice(0, 40);
@@ -99,7 +99,7 @@ app.get("/api/users/search", auth, async (req: AuthedRequest, res) => {
   const term = String(req.query.q || "").trim().replace(/[%_]/g, "");
   if (term.length < 2) return res.json({ users: [] });
   const q = await pool.query("SELECT id,username,display_name,bio,avatar_url FROM users WHERE id<>$1 AND username ILIKE $2 ORDER BY username LIMIT 20", [req.userId, `%${term}%`]);
-  res.json({ users: q.rows.map(publicUser) });
+  res.json({ users: q.rows.map((u: any) => publicUser(u)) });
 });
 // Chat list query sorts by the latest message timestamp without relying on a SELECT alias.
 app.get("/api/chats", auth, async (req: AuthedRequest, res) => {
