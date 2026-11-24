@@ -28,6 +28,13 @@ CREATE TABLE IF NOT EXISTS messages (
   chat_id BIGINT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
   sender_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   body VARCHAR(4000) NOT NULL CHECK (char_length(body) BETWEEN 1 AND 4000),
+  message_type TEXT NOT NULL DEFAULT 'text' CHECK (message_type IN ('text', 'image', 'audio')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS messages_chat_created_idx ON messages(chat_id, created_at DESC);
+
+
+-- Private chat media, returned only after a server-side chat membership check.
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS message_type TEXT NOT NULL DEFAULT 'text';
+CREATE TABLE IF NOT EXISTS message_media (message_id BIGINT PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE, mime_type TEXT NOT NULL, file_name TEXT NOT NULL, file_size INTEGER NOT NULL CHECK (file_size > 0 AND file_size <= 12582912), data BYTEA NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
+CREATE INDEX IF NOT EXISTS messages_chat_type_created_idx ON messages(chat_id, message_type, created_at DESC);

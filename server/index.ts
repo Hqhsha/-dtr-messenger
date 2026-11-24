@@ -72,6 +72,7 @@ app.patch("/api/profile", auth, async (req: AuthedRequest, res) => {
 });
 const storage = multer.diskStorage({ destination: uploadDir, filename: (req, file, cb) => cb(null, `${(req as AuthedRequest).userId}-${Date.now()}${path.extname(file.originalname).toLowerCase()}`) });
 const avatarUpload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 }, fileFilter: (_req, file, cb) => cb(null, ["image/png","image/jpeg","image/webp","image/gif"].includes(file.mimetype)) });
+const mediaUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 }, fileFilter: (_req, file, cb) => cb(null, ["image/png","image/jpeg","image/webp","image/gif","audio/webm","audio/ogg","audio/mp4","audio/mpeg","audio/wav","audio/x-wav","audio/mp4a-latm"].includes(file.mimetype)) });
 app.post("/api/profile/avatar", auth, avatarUpload.single("avatar"), async (req: AuthedRequest, res) => {
   if (!req.file) return res.status(400).json({ error: "Выбери PNG, JPG, WEBP или GIF до 5 МБ" });
   const url = `/uploads/${req.file.filename}`;
@@ -122,9 +123,9 @@ app.post("/api/chats/open", auth, async (req: AuthedRequest, res) => {
 app.get("/api/chats/:chatId/messages", auth, async (req: AuthedRequest, res) => {
   const member = await pool.query("SELECT 1 FROM chat_members WHERE chat_id=$1 AND user_id=$2", [req.params.chatId, req.userId]);
   if (!member.rowCount) return res.status(403).json({ error: "Нет доступа к чату" });
-  const q = await pool.query(`SELECT m.id,m.body,m.created_at,m.sender_id,u.username,u.display_name FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.chat_id=$1 ORDER BY m.created_at ASC LIMIT 200`, [req.params.chatId]);
+  const q = await pool.query(`SELECT m.id,m.body,m.message_type,m.created_at,m.sender_id,u.username,u.display_name FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.chat_id=$1 ORDER BY m.created_at ASC LIMIT 200`, [req.params.chatId]);
   await pool.query("UPDATE chat_members SET last_read_at=NOW() WHERE chat_id=$1 AND user_id=$2", [req.params.chatId, req.userId]);
-  res.json({ messages: q.rows.map(m => ({ id:String(m.id), body:m.body, createdAt:m.created_at, senderId:String(m.sender_id), username:m.username, displayName:m.display_name })) });
+  res.json({ messages: q.rows.map(m => ({ id:String(m.id), body:m.body, messageType:m.message_type, mediaUrl:m.message_type === "text" ? null : `/api/messages/${m.id}/media`, createdAt:m.created_at, senderId:String(m.sender_id), username:m.username, displayName:m.display_name })) });
 });
 app.post("/api/chats/:chatId/messages", auth, async (req: AuthedRequest, res) => {
   const body = String(req.body.body || "").trim();
@@ -132,10 +133,39 @@ app.post("/api/chats/:chatId/messages", auth, async (req: AuthedRequest, res) =>
   const member = await pool.query("SELECT 1 FROM chat_members WHERE chat_id=$1 AND user_id=$2", [req.params.chatId, req.userId]);
   if (!member.rowCount) return res.status(403).json({ error: "Нет доступа к чату" });
   const q = await pool.query("INSERT INTO messages(chat_id,sender_id,body) VALUES($1,$2,$3) RETURNING *", [req.params.chatId, req.userId, body]);
-  const message = { id:String(q.rows[0].id), chatId:String(q.rows[0].chat_id), senderId:String(q.rows[0].sender_id), body:q.rows[0].body, createdAt:q.rows[0].created_at };
+  const message = { id:String(q.rows[0].id), chatId:String(q.rows[0].chat_id), senderId:String(q.rows[0].sender_id), body:q.rows[0].body, messageType:"text", mediaUrl:null, createdAt:q.rows[0].created_at };
   const members = await pool.query("SELECT user_id FROM chat_members WHERE chat_id=$1", [req.params.chatId]);
   for (const m of members.rows) io.to(`user:${m.user_id}`).emit("chat:message", message);
   res.status(201).json({ message });
+});
+app.post("/api/chats/:chatId/media", auth, mediaUpload.single("media"), async (req: AuthedRequest, res) => {
+  const file = req.file;
+  if (!file) return res.status(400).json({ error: "Выбери фото или запиши голосовое сообщение в поддерживаемом формате" });
+  const isImage = file.mimetype.startsWith("image/"); const isAudio = file.mimetype.startsWith("audio/");
+  if (!isImage && !isAudio) return res.status(415).json({ error: "Поддерживаются только изображения и аудио" });
+  const member = await pool.query("SELECT 1 FROM chat_members WHERE chat_id=$1 AND user_id=$2", [req.params.chatId, req.userId]);
+  if (!member.rowCount) return res.status(403).json({ error: "Нет доступа к чату" });
+  const caption = String(req.body.caption || "").trim().slice(0, 500); const body = caption || (isImage ? "Фото" : "Голосовое сообщение");
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const inserted = await client.query("INSERT INTO messages(chat_id,sender_id,body,message_type) VALUES($1,$2,$3,$4) RETURNING *", [req.params.chatId, req.userId, body, isImage ? "image" : "audio"]);
+    const messageId = inserted.rows[0].id;
+    const safeName = path.basename(file.originalname).replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || (isImage ? "image" : "voice");
+    await client.query("INSERT INTO message_media(message_id,mime_type,file_name,file_size,data) VALUES($1,$2,$3,$4,$5)", [messageId, file.mimetype, safeName, file.size, file.buffer]);
+    await client.query("COMMIT");
+    const message = { id:String(messageId), chatId:String(req.params.chatId), senderId:String(req.userId), body, messageType:isImage ? "image" : "audio", mediaUrl:`/api/messages/${messageId}/media`, createdAt:inserted.rows[0].created_at };
+    const members = await pool.query("SELECT user_id FROM chat_members WHERE chat_id=$1", [req.params.chatId]);
+    for (const m of members.rows) io.to(`user:${m.user_id}`).emit("chat:message", message);
+    res.status(201).json({ message });
+  } catch (e) { await client.query("ROLLBACK"); console.error("POST /api/chats/:chatId/media failed:", e); res.status(500).json({ error: "Не удалось отправить файл" }); }
+  finally { client.release(); }
+});
+app.get("/api/messages/:messageId/media", auth, async (req: AuthedRequest, res) => {
+  const q = await pool.query(`SELECT mm.mime_type,mm.file_name,mm.file_size,mm.data FROM message_media mm JOIN messages m ON m.id=mm.message_id JOIN chat_members cm ON cm.chat_id=m.chat_id AND cm.user_id=$2 WHERE mm.message_id=$1`, [req.params.messageId, req.userId]);
+  if (!q.rowCount) return res.status(404).json({ error: "Файл не найден или нет доступа" });
+  const media = q.rows[0]; res.setHeader("Content-Type", media.mime_type); res.setHeader("Content-Length", String(media.file_size));
+  res.setHeader("Content-Disposition", `inline; filename="${media.file_name}"`); res.setHeader("Cache-Control", "private, no-store"); res.setHeader("X-Content-Type-Options", "nosniff"); res.send(media.data);
 });
 io.use((socket, next) => {
   try { const token = socket.handshake.auth?.token; const payload = jwt.verify(token, JWT_SECRET!) as jwt.JwtPayload; socket.data.userId = String(payload.sub); next(); }
