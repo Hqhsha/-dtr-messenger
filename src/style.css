@@ -195,3 +195,28 @@ button:active{transform:scale(.975)}
 .typing-indicator{align-self:flex-start;max-width:80%;margin:4px 0 8px;padding:7px 12px;border-radius:14px;background:var(--panel,#24242b);color:var(--muted,#a8a8b3);font-size:12px;line-height:1.3;animation:typingFade .18s ease-out}.typing-indicator::after{content:"";display:inline-block;width:14px;height:4px;margin-left:5px;border-radius:4px;background:currentColor;opacity:.65;animation:typingPulse 1s infinite ease-in-out}@keyframes typingPulse{0%,100%{opacity:.25;transform:scaleX(.6)}50%{opacity:.85;transform:scaleX(1)}}@keyframes typingFade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
 
 .chat-unread-badge{display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;padding:0 5px;margin-left:auto;border-radius:999px;background:var(--accent,#8b5cf6);color:#fff;font-size:11px;font-weight:700;line-height:1;flex-shrink:0;box-shadow:0 1px 6px #0002}
+
+
+/* Compact mobile chat header and composer: keep voice recording reachable */
+.chat-header-profile{flex:1 1 auto;min-width:0;max-width:100%;overflow:hidden}
+.chat-header-profile>span{min-width:0;overflow:hidden}
+.chat-header-profile b,.chat-header-profile small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conversation-head>.icon-btn,.conversation-head>.call-action{flex:0 0 auto;min-width:34px;width:34px;height:38px;padding:0;display:grid;place-items:center}
+.composer-tools{position:relative;flex:none}
+.composer-extra-tools{position:absolute;left:0;bottom:calc(100% + 8px);z-index:40;display:flex;gap:6px;padding:8px;background:#171320;border:1px solid #38294a;border-radius:14px;box-shadow:0 8px 28px #0008}
+.composer-extra-tools .tool-btn{width:auto;min-width:58px;padding:0 9px;font-size:12px;white-space:nowrap}
+@media(max-width:700px){
+ .conversation-head{gap:5px;padding:8px 7px}
+ .chat-header-profile{gap:6px}
+ .chat-header-profile .avatar-wrap{width:32px;height:32px;flex-basis:32px}
+ .chat-header-profile .avatar{width:32px;height:32px}
+ .chat-header-profile b{font-size:13px}
+ .chat-header-profile small{font-size:10px}
+ .conversation-head>.icon-btn,.conversation-head>.call-action{width:29px;min-width:29px;height:34px;font-size:16px}
+ .composer{grid-template-columns:auto minmax(0,1fr) 42px;gap:6px;padding:8px 9px;padding-bottom:max(8px,env(safe-area-inset-bottom))}
+ .composer-tools{gap:5px}
+ .composer .tool-btn{width:36px;min-width:36px;height:40px;padding:0;font-size:18px}
+ .composer .send-btn{width:42px;min-width:42px;height:40px}
+ .composer>input{height:40px;min-width:0;font-size:14px}
+ .composer-extra-tools{left:0;max-width:calc(100vw - 24px)}
+}
