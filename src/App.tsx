@@ -56,6 +56,31 @@ export default function App() {
   const recorderTimer = useRef<number|null>(null);
   const socket = useMemo<Socket|null>(()=> token ? io({auth:{token}}) : null,[token]);
 
+  // Keep the underlying messenger viewport fixed while a modal is open.
+  // Telegram's Android WebView can otherwise scroll the page when a modal closes.
+  useEffect(()=>{
+    const modalOpen=Boolean(profileTarget||editOpen||groupOpen||groupInfoOpen);
+    if(!modalOpen)return;
+    const y=window.scrollY||document.documentElement.scrollTop||0;
+    const body=document.body;
+    const previous={position:body.style.position,top:body.style.top,left:body.style.left,right:body.style.right,width:body.style.width,overflow:body.style.overflow};
+    body.style.position="fixed";
+    body.style.top=`-${y}px`;
+    body.style.left="0";
+    body.style.right="0";
+    body.style.width="100%";
+    body.style.overflow="hidden";
+    return ()=>{
+      body.style.position=previous.position;
+      body.style.top=previous.top;
+      body.style.left=previous.left;
+      body.style.right=previous.right;
+      body.style.width=previous.width;
+      body.style.overflow=previous.overflow;
+      window.scrollTo(0,y);
+    };
+  },[profileTarget,editOpen,groupOpen,groupInfoOpen]);
+
   async function refreshChats(){ if(!token)return; try{const d=await api("/chats",token);setChats(d.chats||[]);}catch(e:any){setError(e.message)} }
   useEffect(()=>{ if(!token)return; api("/me",token).then(d=>{setMe(d.user);setEditName(d.user.displayName);setEditBio(d.user.bio||"");setEditAge(d.user.age===null?"":String(d.user.age));setEditAgePublic(Boolean(d.user.agePublic));}).catch(()=>logout()); refreshChats(); return ()=>{socket?.disconnect()}; },[token,socket]);
   useEffect(()=>{ if(!socket)return; const receive=(m:Message)=>{if(active?.chatId===m.chatId)setMessages(old=>old.some(x=>x.id===m.id)?old:[...old,m]);refreshChats();}; const refresh=()=>refreshChats(); socket.on("chat:message",receive);socket.on("chat:refresh",refresh);return ()=>{socket.off("chat:message",receive);socket.off("chat:refresh",refresh)};},[socket,active,token]);
