@@ -98,3 +98,57 @@ html[data-theme="light"] body{background:#f1eef6;color:#21172c}html[data-theme="
 
 /* Fine alignment for nested avatar status indicators */
 .conversation-head .avatar-wrap{display:inline-flex;flex:0 0 42px;width:42px;height:42px;align-items:center;justify-content:center}.conversation-head .avatar-wrap .avatar{display:grid;flex:none}.remote-audio{display:none}
+
+/* DTR 0.6.1 — calm rounded surfaces, motion and customizable accent */
+:root{--dtr-accent:#a855f7;--dtr-accent-soft:color-mix(in srgb,var(--dtr-accent) 18%,transparent);--dtr-accent-border:color-mix(in srgb,var(--dtr-accent) 42%,transparent);--dtr-motion:cubic-bezier(.2,.75,.25,1)}
+button,.settings-card,.chat,.person,.updates-link,.bubble,.theme-option,.settings-row,.primary-action{transition:background-color .22s var(--dtr-motion),border-color .22s var(--dtr-motion),box-shadow .22s var(--dtr-motion),transform .22s var(--dtr-motion),color .22s var(--dtr-motion)}
+button:active{transform:scale(.975)}
+:focus-visible{outline:2px solid var(--dtr-accent);outline-offset:2px}
+.shell{--dtr-accent:var(--dtr-accent);background:color-mix(in srgb,#0b0a11 94%,var(--dtr-accent));border-color:color-mix(in srgb,var(--dtr-accent) 15%,#24202e)}
+.shell .brand-mark,.shell .primary-action,.shell .send-btn,.shell .welcome-enter{background:linear-gradient(135deg,color-mix(in srgb,var(--dtr-accent) 85%,white),color-mix(in srgb,var(--dtr-accent) 75%,#302047));}
+.shell .bubble.mine{background:linear-gradient(135deg,color-mix(in srgb,var(--dtr-accent) 72%,#25142e),color-mix(in srgb,var(--dtr-accent) 55%,#2b173d));border-color:var(--dtr-accent-border)}
+.shell .chat.active{box-shadow:inset 3px 0 var(--dtr-accent);background:var(--dtr-accent-soft)}
+.shell .tool-btn:hover,.shell .new-group-btn:hover{border-color:var(--dtr-accent-border);background:var(--dtr-accent-soft)}
+.settings-card{border-radius:22px;background:linear-gradient(145deg,#191522f2,#100e17f7);border-color:#ffffff14;backdrop-filter:blur(18px)}
+.settings-card h3{letter-spacing:.2px}
+.settings-row,.theme-option{border-radius:15px}
+.theme-option{border:1px solid #ffffff12}
+.theme-option.selected{border-color:var(--dtr-accent-border);background:var(--dtr-accent-soft);box-shadow:0 0 0 1px var(--dtr-accent-border) inset}
+.settings-content{padding:clamp(14px,2.5vw,26px);scrollbar-width:thin}
+.settings-card:hover{border-color:#ffffff20}
+.accent-picker{display:flex;flex-direction:column;gap:10px;padding:14px 0;border-top:1px solid #ffffff0c;margin-top:12px}
+.accent-picker>b{font-size:12px;color:#bcb0ca}
+.accent-picker>div{display:flex;gap:10px;flex-wrap:wrap}
+.accent-dot{width:28px;height:28px;border-radius:50%;border:3px solid #15121c;box-shadow:0 0 0 1px #ffffff28;position:relative}
+.accent-dot.chosen{box-shadow:0 0 0 2px var(--dtr-accent),0 0 18px color-mix(in srgb,var(--dtr-accent) 42%,transparent);transform:scale(1.12)}
+.version-details{border:1px solid #ffffff12;border-radius:16px;background:#ffffff04;overflow:hidden}
+.version-details summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;padding:14px 15px;font-weight:650;font-size:13px}
+.version-details summary::-webkit-details-marker{display:none}
+.version-details summary:after{content:"⌄";color:#a99bb9;font-size:18px;transition:transform .2s}
+.version-details[open] summary:after{transform:rotate(180deg)}
+.version-details summary span{margin-left:auto;margin-right:12px;color:#caa3ee;background:var(--dtr-accent-soft);border:1px solid var(--dtr-accent-border);padding:4px 9px;border-radius:30px;font-size:10px}
+.version-list{padding:0 14px 14px;display:grid;gap:10px}
+.version-list>div{display:grid;gap:4px;padding:10px 12px;border-radius:12px;background:#ffffff05}
+.version-list b{font-size:12px;color:#d9c2ef}.version-list small{font-size:11px;color:#9f94ac;line-height:1.5}
+.emoji-picker{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:3px;padding:10px;border:1px solid #ffffff18;border-radius:18px;background:#171320f7;box-shadow:0 16px 40px #0006;max-height:240px;overflow:auto;scrollbar-width:thin;animation:emoji-pop .18s var(--dtr-motion) both}
+.emoji-picker button{min-width:0;aspect-ratio:1;border-radius:10px;background:transparent;font-size:21px;display:grid;place-items:center}
+.emoji-picker button:hover{background:var(--dtr-accent-soft);transform:scale(1.12)}
+.emoji-picker .custom-emoji-add{color:#d7b5f4;border:1px dashed var(--dtr-accent-border);font-size:22px}
+@keyframes emoji-pop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+.dtr-splash{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;background:radial-gradient(ellipse at 50% 42%,#29163c 0%,#100d18 48%,#08080d 100%);overflow:hidden}
+.splash-glow{position:absolute;width:260px;height:260px;border-radius:50%;background:#a855f7;filter:blur(100px);opacity:.24;animation:splash-breathe 1.5s ease-in-out infinite alternate}
+.splash-logo{position:relative;display:flex;align-items:flex-end;gap:4px;height:100px;font-size:76px;font-weight:850;letter-spacing:-7px;color:#f4eaff;text-shadow:0 0 30px #b16af477}
+.splash-letter{display:block;opacity:0;animation:splash-letter-in .65s var(--dtr-motion) forwards}
+.splash-d{transform:translateY(34px);animation-delay:.05s}
+.splash-t{transform:translateY(12px);animation-delay:.18s}
+.splash-r{transform:translateY(-16px);animation-delay:.31s}
+@keyframes splash-letter-in{to{opacity:1;transform:translateY(0)}}
+.splash-caption{font-size:11px;font-weight:800;letter-spacing:4px;color:#e9d9f8;opacity:0;animation:splash-caption-in .45s ease .58s forwards}
+.splash-caption i{font-style:normal;color:#a68abf;font-size:9px;letter-spacing:2px}
+@keyframes splash-caption-in{to{opacity:1;transform:translateY(0)}}
+.splash-progress{position:absolute;bottom:calc(28px + env(safe-area-inset-bottom));width:100px;height:3px;border-radius:9px;background:#ffffff13;overflow:hidden}
+.splash-progress span{display:block;width:40%;height:100%;border-radius:9px;background:var(--dtr-accent);animation:splash-progress 1.15s ease-in-out infinite}
+@keyframes splash-progress{0%{transform:translateX(-120%)}100%{transform:translateX(300%)}}
+@keyframes splash-breathe{from{transform:scale(.82);opacity:.17}to{transform:scale(1.15);opacity:.3}}
+@media(max-width:700px){.settings-content{padding:12px}.settings-card{padding:16px;border-radius:19px}.emoji-picker{grid-template-columns:repeat(7,minmax(0,1fr));max-height:220px}.splash-logo{font-size:68px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
