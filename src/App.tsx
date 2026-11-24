@@ -37,7 +37,8 @@ export default function App() {
   const [page,setPage] = useState<Page>("chat");
   const [chats,setChats] = useState<Chat[]>([]);
   const [active,setActive] = useState<Chat|null>(null);
-  const [messages,setMessages] = useState<Message[]>([]);\n  const [pinnedMessage,setPinnedMessage]=useState<Message|null>(null);
+  const [messages,setMessages] = useState<Message[]>([]);
+  const [pinnedMessage,setPinnedMessage]=useState<Message|null>(null);
   const [feedPosts,setFeedPosts]=useState<any[]>([]);const [feedDraft,setFeedDraft]=useState("");const [feedComments,setFeedComments]=useState<Record<string,any[]>>({});const [commentDrafts,setCommentDrafts]=useState<Record<string,string>>({});const [stories,setStories]=useState<any[]>([]);const [storyDraft,setStoryDraft]=useState("");
   const [search,setSearch] = useState("");
   const [searchOpen,setSearchOpen]=useState(false);
