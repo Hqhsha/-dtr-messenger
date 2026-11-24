@@ -9,6 +9,7 @@ import { createServer } from "node:http";
 import { Server } from "socket.io";
 import path from "node:path";
 import fs from "node:fs";
+import webpush from "web-push";
 
 const app = express();
 const httpServer = createServer(app);
@@ -21,7 +22,11 @@ const pool = new Pool({
   ...(process.env.NODE_ENV === "production" ? { ssl: { rejectUnauthorized: false } } : {}),
 });
 const JWT_SECRET = process.env.JWT_SECRET;
-const schemaReady = pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_data BYTEA, ADD COLUMN IF NOT EXISTS avatar_mime TEXT, ADD COLUMN IF NOT EXISTS age SMALLINT, ADD COLUMN IF NOT EXISTS age_public BOOLEAN NOT NULL DEFAULT FALSE; ALTER TABLE chats ADD COLUMN IF NOT EXISTS chat_type TEXT NOT NULL DEFAULT 'direct'; ALTER TABLE chats ADD COLUMN IF NOT EXISTS title VARCHAR(60)");
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "https://dtr-messenger-z1ee.onrender.com";
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) webpush.setVapidDetails(VAPID_SUBJECT,VAPID_PUBLIC_KEY,VAPID_PRIVATE_KEY);
+const schemaReady = pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_data BYTEA, ADD COLUMN IF NOT EXISTS avatar_mime TEXT, ADD COLUMN IF NOT EXISTS age SMALLINT, ADD COLUMN IF NOT EXISTS age_public BOOLEAN NOT NULL DEFAULT FALSE; ALTER TABLE chats ADD COLUMN IF NOT EXISTS chat_type TEXT NOT NULL DEFAULT 'direct'; ALTER TABLE chats ADD COLUMN IF NOT EXISTS title VARCHAR(60); CREATE TABLE IF NOT EXISTS push_subscriptions (id BIGSERIAL PRIMARY KEY,user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,endpoint TEXT NOT NULL UNIQUE,subscription JSONB NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()); CREATE INDEX IF NOT EXISTS push_subscriptions_user_id_idx ON push_subscriptions(user_id); ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY; REVOKE ALL ON TABLE push_subscriptions FROM anon, authenticated");
 
 if (!JWT_SECRET || JWT_SECRET.length < 32) throw new Error("JWT_SECRET must contain at least 32 characters");
 app.use(cors({ origin: allowedOrigins }));
@@ -40,6 +45,13 @@ function auth(req: AuthedRequest, res: express.Response, next: express.NextFunct
 }
 const publicUser = (u: any, isOwner = false) => ({ id: String(u.id), username: u.username, displayName: u.display_name, bio: u.bio || "", avatarUrl: u.avatar_url ? "/api/users/" + u.id + "/avatar" : null, age: isOwner || u.age_public ? (u.age ?? null) : null, agePublic: Boolean(u.age_public) });
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
+
+app.get("/api/push/public-key", auth, (_req,res)=>{if(!VAPID_PUBLIC_KEY)return res.status(503).json({error:"Push-уведомления пока не настроены"});res.json({publicKey:VAPID_PUBLIC_KEY});});
+app.post("/api/push/subscribe", auth, async (req:AuthedRequest,res)=>{const sub=req.body;if(!sub?.endpoint||!sub?.keys?.p256dh||!sub?.keys?.auth||!String(sub.endpoint).startsWith("https://"))return res.status(400).json({error:"Некорректная push-подписка"});await pool.query("INSERT INTO push_subscriptions(user_id,endpoint,subscription) VALUES($1,$2,$3::jsonb) ON CONFLICT(endpoint) DO UPDATE SET user_id=EXCLUDED.user_id,subscription=EXCLUDED.subscription",[req.userId,sub.endpoint,JSON.stringify(sub)]);res.json({ok:true});});
+app.delete("/api/push/subscribe", auth, async (req:AuthedRequest,res)=>{const endpoint=String(req.body.endpoint||"");if(!endpoint.startsWith("https://"))return res.status(400).json({error:"Некорректная подписка"});await pool.query("DELETE FROM push_subscriptions WHERE user_id=$1 AND endpoint=$2",[req.userId,endpoint]);res.json({ok:true});});
+async function pushUser(userId:string,payload:{title:string;body:string;url?:string;tag?:string}){if(!VAPID_PUBLIC_KEY||!VAPID_PRIVATE_KEY)return;const q=await pool.query("SELECT endpoint,subscription FROM push_subscriptions WHERE user_id=$1",[userId]);await Promise.all(q.rows.map(async row=>{try{await webpush.sendNotification(row.subscription,JSON.stringify(payload),{TTL:90,urgency:"high"});}catch(error:any){if(error.statusCode===404||error.statusCode===410)await pool.query("DELETE FROM push_subscriptions WHERE endpoint=$1",[row.endpoint]);else console.warn("Push delivery failed:",error.statusCode||error.message);}}));}
+async function pushChatMembers(chatId:string,senderId:string,payload:{title:string;body:string;url?:string;tag?:string}){const q=await pool.query("SELECT user_id FROM chat_members WHERE chat_id=$1 AND user_id<>$2",[chatId,senderId]);await Promise.all(q.rows.map(row=>pushUser(String(row.user_id),payload)));}
+
 
 app.post("/api/auth/register", async (req, res) => {
   const username = String(req.body.username || "").trim();
@@ -195,6 +207,7 @@ app.post("/api/chats/:chatId/messages", auth, async (req: AuthedRequest, res) =>
   const message = { id:String(q.rows[0].id), chatId:String(q.rows[0].chat_id), senderId:String(q.rows[0].sender_id), body:q.rows[0].body, messageType:"text", mediaUrl:null, createdAt:q.rows[0].created_at, username:sender.rows[0]?.username, displayName:sender.rows[0]?.display_name };
   const members = await pool.query("SELECT user_id FROM chat_members WHERE chat_id=$1", [req.params.chatId]);
   for (const m of members.rows) io.to(`user:${m.user_id}`).emit("chat:message", message);
+  void pushChatMembers(String(req.params.chatId),String(req.userId),{title:sender.rows[0]?.display_name||"Новое сообщение",body:body.slice(0,140),url:"/",tag:"chat-"+req.params.chatId});
   res.status(201).json({ message });
 });
 app.post("/api/chats/:chatId/media", auth, mediaUpload.single("media"), async (req: AuthedRequest, res) => {
@@ -217,6 +230,7 @@ app.post("/api/chats/:chatId/media", auth, mediaUpload.single("media"), async (r
     const message = { id:String(messageId), chatId:String(req.params.chatId), senderId:String(req.userId), body, messageType:isImage ? "image" : "audio", mediaUrl:`/api/messages/${messageId}/media`, createdAt:inserted.rows[0].created_at, username:sender.rows[0]?.username, displayName:sender.rows[0]?.display_name };
     const members = await pool.query("SELECT user_id FROM chat_members WHERE chat_id=$1", [req.params.chatId]);
     for (const m of members.rows) io.to(`user:${m.user_id}`).emit("chat:message", message);
+    void pushChatMembers(String(req.params.chatId),String(req.userId),{title:sender.rows[0]?.display_name||"Новое сообщение",body:isImage?"Отправил(а) фото":"Отправил(а) голосовое сообщение",url:"/",tag:"chat-"+req.params.chatId});
     res.status(201).json({ message });
   } catch (e) { await client.query("ROLLBACK"); console.error("POST /api/chats/:chatId/media failed:", e); res.status(500).json({ error: "Не удалось отправить файл" }); }
   finally { client.release(); }
@@ -231,7 +245,14 @@ io.use((socket, next) => {
   try { const token = socket.handshake.auth?.token; const payload = jwt.verify(token, JWT_SECRET!) as jwt.JwtPayload; socket.data.userId = String(payload.sub); next(); }
   catch { next(new Error("unauthorized")); }
 });
-io.on("connection", socket => socket.join(`user:${socket.data.userId}`));
+io.on("connection", socket => {
+  const userId=String(socket.data.userId);socket.join(`user:${userId}`);
+  const relay=async(payload:any,event:string)=>{const to=String(payload?.to||"");const chatId=String(payload?.chatId||"");if(!/^\d+$/.test(to)||!chatId||to===userId)return;try{const allowed=await pool.query("SELECT 1 FROM chat_members a JOIN chat_members b ON a.chat_id=b.chat_id WHERE a.chat_id=$1 AND a.user_id=$2 AND b.user_id=$3",[chatId,userId,to]);if(!allowed.rowCount)return;const {to:_to,...rest}=payload;io.to(`user:${to}`).emit(event,{...rest,from:userId});}catch(error){console.error("Call signaling failed:",error);}};
+  socket.on("call:offer",payload=>void relay(payload,"call:incoming"));
+  socket.on("call:answer",payload=>void relay(payload,"call:answered"));
+  socket.on("call:ice",payload=>void relay(payload,"call:ice-candidate"));
+  socket.on("call:end",payload=>void relay(payload,"call:ended"));
+});
 // In production, serve the Vite build from the same origin as the API and Socket.IO.
 const clientDist = path.resolve("dist");
 if (fs.existsSync(clientDist)) {
