@@ -275,3 +275,22 @@ button{transition:background-color .12s ease,color .12s ease}
  .tool-btn{width:34px;height:34px}
  .composer input{min-width:0;padding:11px 13px!important}
 }
+
+
+/* Telegram-like compact message context menu */
+.bubble{position:relative}
+.message-actions{position:absolute;z-index:15;top:3px;right:4px;display:block;margin:0;opacity:1;pointer-events:none}
+.message-menu-trigger{pointer-events:auto;width:28px;height:26px;display:grid;place-items:center;border-radius:9px;background:#263746eF;border:1px solid #ffffff14;color:#d8e5ef;font-size:23px;line-height:1;opacity:0;transition:opacity .12s,background .12s}
+.bubble:hover .message-menu-trigger,.message-actions.open .message-menu-trigger,.message-actions:focus-within .message-menu-trigger{opacity:1}
+.message-menu-trigger:hover{background:#36516a;color:#fff}
+.message-action-items{position:absolute;right:0;top:calc(100% + 5px);display:none;flex-direction:column;gap:2px;min-width:172px;max-width:min(220px,calc(100vw - 32px));padding:5px;border:1px solid #334656;border-radius:12px;background:#182633;box-shadow:0 10px 28px #0008;pointer-events:auto}
+.message-actions.open .message-action-items{display:flex}
+.message-action-items button{width:100%;display:flex;align-items:center;gap:10px;text-align:left;padding:9px 11px;border:0;border-radius:8px;background:transparent;color:#dce6ef;font-size:12px;white-space:nowrap}
+.message-action-items button:hover{background:#2b3d4d;color:#fff}
+.message-action-items button:last-child{color:#ff9aa8}
+.bubble .message-meta{position:relative;z-index:1}
+@media(max-width:700px){
+ .message-menu-trigger{opacity:1;width:26px;height:25px;background:#20313fe8}
+ .message-action-items{min-width:164px;top:calc(100% + 4px)}
+ .message-action-items button{min-height:40px;font-size:13px}
+}
