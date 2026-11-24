@@ -266,6 +266,8 @@ io.use((socket, next) => {
 });
 io.on("connection", socket => {
   const userId=String(socket.data.userId);socket.join(`user:${userId}`);
+  void (async()=>{try{const u=await currentUser(userId);if(u&&staffRoles.has(u.role))socket.join("support:staff");onlineUsers.add(userId);await pool.query("UPDATE users SET last_seen_at=NULL WHERE id=$1",[userId]);io.emit("presence:update",{userId,online:true,lastSeenAt:null});}catch(e){console.warn("Presence init failed",e);}})();
+  socket.on("disconnect",()=>{void (async()=>{try{const remaining=await io.in("user:"+userId).allSockets();if(remaining.size===0){onlineUsers.delete(userId);const q=await pool.query("UPDATE users SET last_seen_at=NOW() WHERE id=$1 RETURNING last_seen_at",[userId]);io.emit("presence:update",{userId,online:false,lastSeenAt:q.rows[0]?.last_seen_at||new Date().toISOString()});}}catch(e){console.warn("Presence update failed",e);}})();});
   const relay=async(payload:any,event:string)=>{const to=String(payload?.to||"");const chatId=String(payload?.chatId||"");if(!/^\d+$/.test(to)||!chatId||to===userId)return;try{const allowed=await pool.query("SELECT 1 FROM chat_members a JOIN chat_members b ON a.chat_id=b.chat_id WHERE a.chat_id=$1 AND a.user_id=$2 AND b.user_id=$3",[chatId,userId,to]);if(!allowed.rowCount)return;const {to:_to,...rest}=payload;io.to(`user:${to}`).emit(event,{...rest,from:userId});}catch(error){console.error("Call signaling failed:",error);}};
   socket.on("call:offer",payload=>void relay(payload,"call:incoming"));
   socket.on("call:answer",payload=>void relay(payload,"call:answered"));
