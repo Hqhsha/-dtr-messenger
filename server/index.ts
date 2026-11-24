@@ -191,7 +191,8 @@ app.post("/api/chats/:chatId/messages", auth, async (req: AuthedRequest, res) =>
   const member = await pool.query("SELECT 1 FROM chat_members WHERE chat_id=$1 AND user_id=$2", [req.params.chatId, req.userId]);
   if (!member.rowCount) return res.status(403).json({ error: "Нет доступа к чату" });
   const q = await pool.query("INSERT INTO messages(chat_id,sender_id,body) VALUES($1,$2,$3) RETURNING *", [req.params.chatId, req.userId, body]);
-  const message = { id:String(q.rows[0].id), chatId:String(q.rows[0].chat_id), senderId:String(q.rows[0].sender_id), body:q.rows[0].body, messageType:"text", mediaUrl:null, createdAt:q.rows[0].created_at };
+  const sender = await pool.query("SELECT username,display_name FROM users WHERE id=$1",[req.userId]);
+  const message = { id:String(q.rows[0].id), chatId:String(q.rows[0].chat_id), senderId:String(q.rows[0].sender_id), body:q.rows[0].body, messageType:"text", mediaUrl:null, createdAt:q.rows[0].created_at, username:sender.rows[0]?.username, displayName:sender.rows[0]?.display_name };
   const members = await pool.query("SELECT user_id FROM chat_members WHERE chat_id=$1", [req.params.chatId]);
   for (const m of members.rows) io.to(`user:${m.user_id}`).emit("chat:message", message);
   res.status(201).json({ message });
@@ -212,7 +213,8 @@ app.post("/api/chats/:chatId/media", auth, mediaUpload.single("media"), async (r
     const safeName = path.basename(file.originalname).replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || (isImage ? "image" : "voice");
     await client.query("INSERT INTO message_media(message_id,mime_type,file_name,file_size,data) VALUES($1,$2,$3,$4,$5)", [messageId, file.mimetype, safeName, file.size, file.buffer]);
     await client.query("COMMIT");
-    const message = { id:String(messageId), chatId:String(req.params.chatId), senderId:String(req.userId), body, messageType:isImage ? "image" : "audio", mediaUrl:`/api/messages/${messageId}/media`, createdAt:inserted.rows[0].created_at };
+    const sender = await pool.query("SELECT username,display_name FROM users WHERE id=$1",[req.userId]);
+    const message = { id:String(messageId), chatId:String(req.params.chatId), senderId:String(req.userId), body, messageType:isImage ? "image" : "audio", mediaUrl:`/api/messages/${messageId}/media`, createdAt:inserted.rows[0].created_at, username:sender.rows[0]?.username, displayName:sender.rows[0]?.display_name };
     const members = await pool.query("SELECT user_id FROM chat_members WHERE chat_id=$1", [req.params.chatId]);
     for (const m of members.rows) io.to(`user:${m.user_id}`).emit("chat:message", message);
     res.status(201).json({ message });
