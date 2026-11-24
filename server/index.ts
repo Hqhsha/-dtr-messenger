@@ -86,13 +86,18 @@ app.get("/api/users/search", auth, async (req: AuthedRequest, res) => {
   res.json({ users: q.rows.map(publicUser) });
 });
 app.get("/api/chats", auth, async (req: AuthedRequest, res) => {
-  const q = await pool.query(`SELECT c.id, c.created_at, u.id AS other_id,u.username,u.display_name,u.bio,u.avatar_url,
-    (SELECT body FROM messages WHERE chat_id=c.id ORDER BY created_at DESC LIMIT 1) AS last_message,
-    (SELECT created_at FROM messages WHERE chat_id=c.id ORDER BY created_at DESC LIMIT 1) AS last_message_at
-    FROM chats c JOIN chat_members mine ON mine.chat_id=c.id AND mine.user_id=$1
-    JOIN chat_members other ON other.chat_id=c.id AND other.user_id<>$1 JOIN users u ON u.id=other.user_id
-    ORDER BY COALESCE(last_message_at,c.created_at) DESC`, [req.userId]);
-  res.json({ chats: q.rows.map(r => ({ chatId: String(r.id), user: publicUser({ id:r.other_id, username:r.username, display_name:r.display_name, bio:r.bio, avatar_url:r.avatar_url }), lastMessage:r.last_message, updatedAt:r.last_message_at || r.created_at })) });
+  try {
+    const q = await pool.query(`SELECT c.id, c.created_at, u.id AS other_id,u.username,u.display_name,u.bio,u.avatar_url,
+      (SELECT body FROM messages WHERE chat_id=c.id ORDER BY created_at DESC LIMIT 1) AS last_message,
+      (SELECT created_at FROM messages WHERE chat_id=c.id ORDER BY created_at DESC LIMIT 1) AS last_message_at
+      FROM chats c JOIN chat_members mine ON mine.chat_id=c.id AND mine.user_id=$1
+      JOIN chat_members other ON other.chat_id=c.id AND other.user_id<>$1 JOIN users u ON u.id=other.user_id
+      ORDER BY COALESCE((SELECT MAX(created_at) FROM messages WHERE chat_id=c.id),c.created_at) DESC`, [req.userId]);
+    res.json({ chats: q.rows.map(r => ({ chatId: String(r.id), user: publicUser({ id:r.other_id, username:r.username, display_name:r.display_name, bio:r.bio, avatar_url:r.avatar_url }), lastMessage:r.last_message, updatedAt:r.last_message_at || r.created_at })) });
+  } catch (e) {
+    console.error("GET /api/chats failed:", e);
+    res.status(500).json({ error: "Не удалось загрузить список чатов" });
+  }
 });
 app.post("/api/chats/open", auth, async (req: AuthedRequest, res) => {
   const otherId = String(req.body.userId || "");
