@@ -181,3 +181,11 @@ button:active{transform:scale(.975)}
 
 /* Reactions sit beside the message timestamp */
 .bubble .message-meta{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:5px;min-height:22px;position:relative}.bubble .message-meta time{display:inline-block;margin:0;white-space:nowrap;line-height:22px}.bubble .message-reactions{display:flex;align-items:center;flex-wrap:wrap;gap:3px;margin:0;position:relative}.bubble .reaction-chip{min-height:20px;padding:1px 5px;font-size:10px;line-height:16px}.bubble .reaction-open-btn{width:20px;height:20px;flex:none}.bubble .reaction-popover{bottom:25px}@media(max-width:420px){.bubble .message-meta{gap:4px}.bubble .reaction-chip{font-size:9px;padding:1px 4px}}
+
+/* DTR message actions: reply quote, edit and delete */
+.message-actions{display:flex;gap:5px;flex-wrap:wrap;margin:2px 0 6px;opacity:.78}
+.message-actions button{padding:4px 7px;border-radius:7px;background:#ffffff0b;border:1px solid #ffffff12;color:#c9b8da;font-size:10px}
+.message-actions button:hover{background:#a855f72b;color:#f6eaff;border-color:#a855f755}
+.message-actions button:last-child{color:#ff9ba9}
+.message-edited{display:block;margin-top:4px;color:#c9b5df;font-size:10px;font-style:italic}
+@media(max-width:600px){.message-actions{opacity:1}.message-actions button{padding:5px 8px}}
