@@ -12,11 +12,17 @@ import fs from "node:fs";
 
 const app = express();
 const httpServer = createServer(app);
-const io = new Server(httpServer, { cors: { origin: process.env.CLIENT_ORIGIN || "http://localhost:5173" } });
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const allowedOrigins = process.env.CLIENT_ORIGIN
+  ? process.env.CLIENT_ORIGIN.split(",").map((origin) => origin.trim())
+  : true;
+const io = new Server(httpServer, { cors: { origin: allowedOrigins } });
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ...(process.env.NODE_ENV === "production" ? { ssl: { rejectUnauthorized: false } } : {}),
+});
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET || JWT_SECRET.length < 32) throw new Error("JWT_SECRET must contain at least 32 characters");
-app.use(cors({ origin: process.env.CLIENT_ORIGIN || "http://localhost:5173" }));
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json({ limit: "1mb" }));
 const uploadDir = path.resolve("uploads");
 fs.mkdirSync(uploadDir, { recursive: true });
@@ -130,5 +136,12 @@ io.use((socket, next) => {
   catch { next(new Error("unauthorized")); }
 });
 io.on("connection", socket => socket.join(`user:${socket.data.userId}`));
+// In production, serve the Vite build from the same origin as the API and Socket.IO.
+const clientDist = path.resolve("dist");
+if (fs.existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  app.get("*", (_req, res) => res.sendFile(path.join(clientDist, "index.html")));
+}
+
 const port = Number(process.env.PORT || 3001);
 httpServer.listen(port, () => console.log(`дтр API listening on :${port}`));
