@@ -38,7 +38,7 @@ function auth(req: AuthedRequest, res: express.Response, next: express.NextFunct
   try { req.userId = String((jwt.verify(token, JWT_SECRET!) as jwt.JwtPayload).sub); next(); }
   catch { return res.status(401).json({ error: "Сессия истекла" }); }
 }
-const publicUser = (u: any) => ({ id: String(u.id), username: u.username, displayName: u.display_name, bio: u.bio || "", avatarUrl: u.avatar_url || null });
+const publicUser = (u: any) => ({ id: String(u.id), username: u.username, displayName: u.display_name, bio: u.bio || "", avatarUrl: u.avatar_url ? `/api/users/${u.id}/avatar` : null });
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
 app.post("/api/auth/register", async (req, res) => {
