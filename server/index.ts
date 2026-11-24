@@ -21,7 +21,7 @@ const pool = new Pool({
   ...(process.env.NODE_ENV === "production" ? { ssl: { rejectUnauthorized: false } } : {}),
 });
 const JWT_SECRET = process.env.JWT_SECRET;
-const schemaReady = pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_data BYTEA, ADD COLUMN IF NOT EXISTS avatar_mime TEXT");
+const schemaReady = pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_data BYTEA, ADD COLUMN IF NOT EXISTS avatar_mime TEXT, ADD COLUMN IF NOT EXISTS age SMALLINT, ADD COLUMN IF NOT EXISTS age_public BOOLEAN NOT NULL DEFAULT FALSE; ALTER TABLE chats ADD COLUMN IF NOT EXISTS chat_type TEXT NOT NULL DEFAULT 'direct'; ALTER TABLE chats ADD COLUMN IF NOT EXISTS title VARCHAR(60)");
 
 if (!JWT_SECRET || JWT_SECRET.length < 32) throw new Error("JWT_SECRET must contain at least 32 characters");
 app.use(cors({ origin: allowedOrigins }));
@@ -38,7 +38,7 @@ function auth(req: AuthedRequest, res: express.Response, next: express.NextFunct
   try { req.userId = String((jwt.verify(token, JWT_SECRET!) as jwt.JwtPayload).sub); next(); }
   catch { return res.status(401).json({ error: "Сессия истекла" }); }
 }
-const publicUser = (u: any) => ({ id: String(u.id), username: u.username, displayName: u.display_name, bio: u.bio || "", avatarUrl: u.avatar_url ? `/api/users/${u.id}/avatar` : null });
+const publicUser = (u: any, isOwner = false) => ({ id: String(u.id), username: u.username, displayName: u.display_name, bio: u.bio || "", avatarUrl: u.avatar_url ? "/api/users/" + u.id + "/avatar" : null, age: isOwner || u.age_public ? (u.age ?? null) : null, agePublic: Boolean(u.age_public) });
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
 app.post("/api/auth/register", async (req, res) => {
@@ -50,7 +50,7 @@ app.post("/api/auth/register", async (req, res) => {
   try {
     const hash = await bcrypt.hash(password, 12);
     const q = await pool.query("INSERT INTO users(username,password_hash,display_name) VALUES($1,$2,$3) RETURNING *", [username, hash, displayName || username]);
-    const user = publicUser(q.rows[0]); res.status(201).json({ token: signToken(user.id), user });
+    const user = publicUser(q.rows[0], true); res.status(201).json({ token: signToken(user.id), user });
   } catch (e: any) { if (e.code === "23505") return res.status(409).json({ error: "Этот логин уже занят" }); console.error(e); res.status(500).json({ error: "Не удалось создать аккаунт" }); }
 });
 app.post("/api/auth/login", async (req, res) => {
@@ -58,7 +58,7 @@ app.post("/api/auth/login", async (req, res) => {
   const q = await pool.query("SELECT * FROM users WHERE LOWER(username)=LOWER($1)", [username]);
   const u = q.rows[0];
   if (!u || !(await bcrypt.compare(String(req.body.password || ""), u.password_hash))) return res.status(401).json({ error: "Неверный логин или пароль" });
-  const user = publicUser(u); res.json({ token: signToken(user.id), user });
+  const user = publicUser(u, true); res.json({ token: signToken(user.id), user });
 });
 app.get("/api/me", auth, async (req: AuthedRequest, res) => {
   const q = await pool.query("SELECT * FROM users WHERE id=$1", [req.userId]);
@@ -68,9 +68,12 @@ app.get("/api/me", auth, async (req: AuthedRequest, res) => {
 app.patch("/api/profile", auth, async (req: AuthedRequest, res) => {
   const displayName = String(req.body.displayName || "").trim().slice(0, 40);
   const bio = String(req.body.bio || "").trim().slice(0, 160);
+  const age = req.body.age === null || req.body.age === "" || req.body.age === undefined ? null : Number(req.body.age);
+  const agePublic = Boolean(req.body.agePublic);
   if (!displayName) return res.status(400).json({ error: "Укажи отображаемое имя" });
-  const q = await pool.query("UPDATE users SET display_name=$1,bio=$2 WHERE id=$3 RETURNING *", [displayName, bio, req.userId]);
-  res.json({ user: publicUser(q.rows[0]) });
+  if (age !== null && (!Number.isInteger(age) || age < 13 || age > 99)) return res.status(400).json({ error: "Возраст должен быть от 13 до 99 лет" });
+  const q = await pool.query("UPDATE users SET display_name=$1,bio=$2,age=$3,age_public=$4 WHERE id=$5 RETURNING *", [displayName, bio, age, agePublic, req.userId]);
+  res.json({ user: publicUser(q.rows[0], true) });
 });
 const storage = multer.diskStorage({ destination: uploadDir, filename: (req, file, cb) => cb(null, `${(req as AuthedRequest).userId}-${Date.now()}${path.extname(file.originalname).toLowerCase()}`) });
 const avatarUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 }, fileFilter: (_req, file, cb) => cb(null, ["image/png","image/jpeg","image/webp","image/gif"].includes(file.mimetype)) });
