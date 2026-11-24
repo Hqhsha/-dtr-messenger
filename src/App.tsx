@@ -78,6 +78,9 @@ export default function App() {
   const localStreamRef = useRef<MediaStream|null>(null);
   const pendingIceRef = useRef<RTCIceCandidateInit[]>([]);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement>(null);
+  const audioContextRef = useRef<AudioContext|null>(null);
+  const audioSourceRef = useRef<MediaStreamAudioSourceNode|null>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const photoInput = useRef<HTMLInputElement>(null);
   const recorder = useRef<MediaRecorder|null>(null);
