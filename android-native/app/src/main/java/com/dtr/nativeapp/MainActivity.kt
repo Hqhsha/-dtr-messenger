@@ -62,7 +62,8 @@ private val http = OkHttpClient.Builder()
 
 data class DtrUser(val id: String, val username: String, val displayName: String)
 data class DtrChat(val id: String, val title: String, val subtitle: String, val type: String, val peerId: String? = null)
-data class DtrMessage(val id: String, val senderId: String, val body: String, val displayName: String, val createdAt: String)
+data class DtrReaction(val emoji: String, val count: Int, val mine: Boolean)
+data class DtrMessage(val id: String, val senderId: String, val body: String, val displayName: String, val createdAt: String, val reactions: List<DtrReaction> = emptyList(), val editedAt: String? = null)
 data class DtrCall(val peerId: String, val chatId: String, val peerName: String, val video: Boolean, val incoming: Boolean, val status: String, val offer: JSONObject? = null)
 
 class MainActivity : ComponentActivity() {
@@ -92,6 +93,8 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
     var chats by remember { mutableStateOf<List<DtrChat>>(emptyList()) }
     var active by remember { mutableStateOf<DtrChat?>(null) }
     var messages by remember { mutableStateOf<List<DtrMessage>>(emptyList()) }
+    var selectedMessage by remember { mutableStateOf<DtrMessage?>(null) }
+    var editingMessage by remember { mutableStateOf<DtrMessage?>(null) }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var displayName by remember { mutableStateOf("") }
@@ -184,7 +187,8 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
         val array = data.optJSONArray("messages") ?: JSONArray()
         messages = (0 until array.length()).map { i ->
             val m = array.getJSONObject(i)
-            DtrMessage(m.optString("id"), m.optString("senderId"), m.optString("body"), m.optString("displayName"), m.optString("createdAt"))
+            val reactions = m.optJSONArray("reactions")?.let { a -> (0 until a.length()).mapNotNull { k -> a.optJSONObject(k)?.let { DtrReaction(it.optString("emoji"),it.optInt("count"),it.optBoolean("mine")) } } } ?: emptyList()
+            DtrMessage(m.optString("id"), m.optString("senderId"), m.optString("body"), m.optString("displayName"), m.optString("createdAt"), reactions, m.optString("editedAt").takeIf { it.isNotBlank() && it!="null" })
         }
     }
 
