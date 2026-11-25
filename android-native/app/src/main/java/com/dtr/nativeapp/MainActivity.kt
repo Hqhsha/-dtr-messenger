@@ -191,7 +191,6 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
             if (m != null) {
                 val item = DtrMessage(m.optString("id"), m.optString("senderId"), m.optString("body"), m.optString("displayName"), m.optString("createdAt"), messageType = m.optString("messageType", if (mimeType.startsWith("video/")) "video" else "image"), mediaUrl = m.optString("mediaUrl").takeIf { it.isNotBlank() && it != "null" })
                 if (messages.none { it.id == item.id }) messages = messages + item
-                loadChats()
             }
         } catch (e: Exception) { error = e.message ?: "Не удалось отправить файл" }
         finally { loading = false }
