@@ -188,7 +188,7 @@ export default function App() {
     if(!token){draftsSnapshotRef.current={};return;}
     api("/drafts",token).then(data=>{
       if(!live)return;
-      const merged={...drafts,...(data.drafts||{})};
+      const merged={...(data.drafts||{})};
       draftsSnapshotRef.current={...merged};
       setDrafts(merged);
       setDraftsSyncReady(true);
