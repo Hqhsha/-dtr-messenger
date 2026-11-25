@@ -230,8 +230,9 @@ app.patch("/api/friends/requests/:requestId",auth,async(req:AuthedRequest,res)=>
 });
 app.delete("/api/friends/:userId",auth,async(req:AuthedRequest,res)=>{
   await contactsSchemaReady;
-  const q=await pool.query("DELETE FROM friend_requests WHERE status='accepted' AND ((requester_id=$1 AND recipient_id=$2) OR (requester_id=$2 AND recipient_id=$1)) RETURNING id",[String(req.userId),String(req.params.userId)]);
-  if(!q.rowCount)return res.status(404).json({error:"Пользователь не найден в друзьях"});
+  // Allow either removing an accepted friend or cancelling one's own outgoing pending request.
+  const q=await pool.query("DELETE FROM friend_requests WHERE ((status='accepted' AND ((requester_id=$1 AND recipient_id=$2) OR (requester_id=$2 AND recipient_id=$1))) OR (status='pending' AND requester_id=$1 AND recipient_id=$2)) RETURNING id",[String(req.userId),String(req.params.userId)]);
+  if(!q.rowCount)return res.status(404).json({error:"Дружба или исходящая заявка не найдена"});
   res.json({ok:true});
 });
 app.post("/api/favorites/:userId",auth,async(req:AuthedRequest,res)=>{
