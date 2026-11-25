@@ -372,9 +372,9 @@ private fun CallOverlay(call: DtrCall, engine: DtrCallEngine?, onAccept: () -> U
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (call.incoming) Button(onClick = onAccept, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF248A55))) { Text("Принять") }
                 else {
-                    Button(onClick = { engine?.setMicEnabled(!(engine?.micEnabled ?: true)) }, colors = ButtonDefaults.buttonColors(containerColor = Panel)) { Text(if (engine?.micEnabled == false) "Вкл. микрофон" else "Микрофон") }
+                    Button(onClick = { engine?.toggleMic(!(engine?.micEnabled ?: true)) }, colors = ButtonDefaults.buttonColors(containerColor = Panel)) { Text(if (engine?.micEnabled == false) "Вкл. микрофон" else "Микрофон") }
                     if (call.video) {
-                        Button(onClick = { engine?.setCameraEnabled(!(engine?.cameraEnabled ?: true)) }, colors = ButtonDefaults.buttonColors(containerColor = Panel)) { Text("Камера") }
+                        Button(onClick = { engine?.toggleCamera(!(engine?.cameraEnabled ?: true)) }, colors = ButtonDefaults.buttonColors(containerColor = Panel)) { Text("Камера") }
                         Button(onClick = { engine?.switchCamera() }, colors = ButtonDefaults.buttonColors(containerColor = Panel)) { Text("↻") }
                     }
                 }
