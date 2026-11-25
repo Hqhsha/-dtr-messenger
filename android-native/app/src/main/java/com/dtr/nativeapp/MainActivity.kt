@@ -1,6 +1,14 @@
 package com.dtr.nativeapp
 
 import android.os.Bundle
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
+import org.webrtc.SurfaceViewRenderer
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -46,8 +54,9 @@ private val http = OkHttpClient.Builder()
     .build()
 
 data class DtrUser(val id: String, val username: String, val displayName: String)
-data class DtrChat(val id: String, val title: String, val subtitle: String, val type: String)
+data class DtrChat(val id: String, val title: String, val subtitle: String, val type: String, val peerId: String? = null)
 data class DtrMessage(val id: String, val senderId: String, val body: String, val displayName: String, val createdAt: String)
+data class DtrCall(val peerId: String, val chatId: String, val peerName: String, val video: Boolean, val incoming: Boolean, val status: String, val offer: JSONObject? = null)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -84,6 +93,53 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
     var error by remember { mutableStateOf<String?>(null) }
     var socket by remember { mutableStateOf<Socket?>(null) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var call by remember { mutableStateOf<DtrCall?>(null) }
+    var callEngine by remember { mutableStateOf<DtrCallEngine?>(null) }
+    var pendingCallAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
+        if (grants.values.all { it }) pendingCallAction?.invoke() else error = "Для звонка нужны разрешения на микрофон и камеру."
+        pendingCallAction = null
+    }
+    fun withCallPermissions(video: Boolean, action: () -> Unit) {
+        val permissions = if (video) arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA) else arrayOf(Manifest.permission.RECORD_AUDIO)
+        if (permissions.all { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }) action()
+        else { pendingCallAction = action; permissionLauncher.launch(permissions) }
+    }
+    fun finishCall(notifyPeer: Boolean = true) {
+        val current = call
+        if (notifyPeer && current != null) socket?.emit("call:end", JSONObject().put("to", current.peerId).put("chatId", current.chatId))
+        callEngine?.dispose(); callEngine = null; call = null
+    }
+    fun beginCall(video: Boolean) {
+        val chat = active ?: return
+        val peerId = chat.peerId ?: return
+        val live = socket ?: run { error = "Нет соединения с сервером."; return }
+        withCallPermissions(video) {
+            try {
+                val engine = DtrCallEngine(context, live, peerId, chat.id, video) { status ->
+                    scope.launch { call = call?.copy(status = status) }
+                }
+                callEngine = engine
+                call = DtrCall(peerId, chat.id, chat.title, video, false, "calling")
+                engine.startOutgoing()
+            } catch (e: Exception) { finishCall(false); error = e.message ?: "Не удалось начать звонок." }
+        }
+    }
+    fun acceptCall() {
+        val current = call ?: return
+        val offer = current.offer ?: return
+        withCallPermissions(current.video) {
+            try {
+                val engine = DtrCallEngine(context, socket ?: throw IllegalStateException("Нет соединения"), current.peerId, current.chatId, current.video) { status ->
+                    scope.launch { call = call?.copy(status = status) }
+                }
+                callEngine = engine
+                engine.acceptIncoming(offer)
+                call = current.copy(incoming = false, status = "connecting", offer = null)
+            } catch (e: Exception) { finishCall(); error = e.message ?: "Не удалось принять звонок." }
+        }
+    }
 
     suspend fun request(path: String, method: String = "GET", body: JSONObject? = null, auth: String? = token): JSONObject =
         withContext(Dispatchers.IO) {
@@ -133,7 +189,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                 loadChats()
                 val opts = IO.Options.builder().setAuth(mapOf("token" to token)).setReconnection(true).build()
                 val live = IO.socket(BASE_URL, opts)
-                live.on("chat:message") { args ->
+                live.on("call:incoming") { args ->\n                    val data = args.firstOrNull() as? JSONObject ?: return@on\n                    scope.launch {\n                        try {\n                            val from = data.optString("from")\n                            val profileData = request("/api/users/$from/profile")\n                            val u = profileData.optJSONObject("user") ?: JSONObject()\n                            val offer = data.optJSONObject("offer")\n                            call = DtrCall(from, data.optString("chatId"), u.optString("displayName", "Контакт"), data.optBoolean("video"), true, "incoming", offer)\n                        } catch (_: Exception) { live.emit("call:end", JSONObject().put("to", data.optString("from")).put("chatId", data.optString("chatId"))) }\n                    }\n                }\n                live.on("call:answered") { args -> val data = args.firstOrNull() as? JSONObject ?: return@on; scope.launch { callEngine?.onAnswer(data.optJSONObject("answer") ?: JSONObject()) } }\n                live.on("call:ice-candidate") { args -> val data = args.firstOrNull() as? JSONObject ?: return@on; scope.launch { callEngine?.onIce(data) } }\n                live.on("call:ended") { scope.launch { finishCall(false) } }\n                live.on("chat:message") { args ->
                     val obj = args.firstOrNull() as? JSONObject ?: return@on
                     val msg = DtrMessage(obj.optString("id"), obj.optString("senderId"), obj.optString("body"), obj.optString("displayName"), obj.optString("createdAt"))
                     if (active?.id == obj.optString("chatId")) {
