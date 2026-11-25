@@ -372,8 +372,8 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                 LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                     items(chats, key = { it.id }) { chat ->
                         Row(
-                            Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(18.dp))
-                                .clickable { active = chat; page = "chats" }.padding(15.dp),
+                            Modifier.fillMaxWidth().background(Color(0xFF24252C), RoundedCornerShape(20.dp))
+                                .clickable { active = chat; page = "chats" }.padding(horizontal = 16.dp, vertical = 15.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(Modifier.size(48.dp).background(Accent.copy(alpha = .18f), CircleShape), contentAlignment = Alignment.Center) {
@@ -395,13 +395,13 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
         } else {
             Column(Modifier.fillMaxSize()) {
                 Row(
-                    Modifier.fillMaxWidth().background(Panel).padding(horizontal = 12.dp, vertical = 12.dp),
+                    Modifier.fillMaxWidth().background(Color(0xFF202127)).padding(horizontal = 12.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = { active = null; page = "chats" }) { Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = Color.White) }
                     Column(Modifier.weight(1f)) {
                         Text(active!!.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
-                        Text("DTR • чат", color = Muted, fontSize = 11.sp)
+                        Text("В сети • DTR", color = Muted, fontSize = 11.sp)
                     }
                     if (active!!.type == "direct" && active!!.peerId != null) {
                         TextButton(onClick = { beginCall(false) }) { Text("☎", color = Accent, fontSize = 20.sp) }
@@ -409,12 +409,12 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                     }
                     TextButton(onClick = { scope.launch { runCatching { loadMessages(active!!) } } }) { Text("↻", color = Accent, fontSize = 20.sp) }
                 }
-                LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyColumn(Modifier.weight(1f).fillMaxWidth().background(Bg).padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                     items(messages, key = { it.id }) { msg ->
                         val mine = msg.senderId == me?.id
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start) {
                             Column(
-                                Modifier.widthIn(max = 310.dp).background(if (selectedMessage?.id==msg.id) Accent.copy(alpha=.22f) else if (mine) Color(0xFF40336A) else Panel, RoundedCornerShape(17.dp)).clickable { selectedMessage=if(selectedMessage?.id==msg.id)null else msg }.padding(horizontal = 13.dp, vertical = 9.dp)
+                                Modifier.widthIn(max = 310.dp).background(if (selectedMessage?.id==msg.id) Accent.copy(alpha=.22f) else if (mine) Color(0xFF3A3943) else Color(0xFF24252C), RoundedCornerShape(18.dp)).clickable { selectedMessage=if(selectedMessage?.id==msg.id)null else msg }.padding(horizontal = 13.dp, vertical = 9.dp)
                             ) {
                                 if (!mine) Text(msg.displayName.ifBlank { "Участник" }, color = Accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                 Text(when(msg.messageType) { "image" -> "▧  Фото\n${msg.body}"; "video" -> "▶  Видео\n${msg.body}"; "audio" -> "♫  Голосовое сообщение\n${msg.body}"; else -> msg.body }, color = Color.White, fontSize = 15.sp)
@@ -434,7 +434,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                         TextButton(onClick={selectedMessage=null}){Text("×",color=Muted)}
                     }
                 }
-                Row(Modifier.fillMaxWidth().background(Panel).padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().background(Color(0xFF202127)).padding(horizontal = 9.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (editingMessage == null) {
                         IconButton(onClick = { imagePicker.launch("image/*") }, enabled = !loading && !isRecordingVoice) { Text("＋", color = Accent, fontSize = 24.sp) }
                         IconButton(onClick = { videoPicker.launch("video/*") }, enabled = !loading && !isRecordingVoice) { Text("▣", color = Accent, fontSize = 19.sp) }
