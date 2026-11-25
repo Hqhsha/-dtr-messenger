@@ -1,36 +1,18 @@
-# дтр — личный мессенджер
+# Phone Flipper
 
-**Текущая версия: 0.6.0**
+A native 2D Android phone-dealer simulator built with Kotlin and Jetpack Compose.
 
-Воссозданная самостоятельная основа проекта по согласованной спецификации. Это **не побайтовая копия** Floot-проекта: исходный экспорт Floot пока недоступен.
+## Gameplay
+- Browse fictional phone listings and bargain with sellers.
+- Buy devices, inspect components, repair condition, and resell.
+- Earn XP, level up, and grow your starting cash.
+- Save your game locally on the device.
 
-## Возможности MVP
-- Регистрация и вход по уникальному логину и паролю (email не нужен).
-- Поиск пользователей по логину.
-- Личные чаты 1-на-1, история сообщений и realtime-доставка через Socket.IO.
-- Отправка фото и голосовых сообщений в чатах; медиа хранится в PostgreSQL и доступно участникам чата.
-- Вкладка «Обновления» с текущей версией и историей исправлений.
-- Профиль: отображаемое имя, описание и аватар.
-- Адаптивный интерфейс со светлой и тёмной темами, настройками приватности и уведомлений.
-- Роли пользователей с серверной проверкой прав, центр поддержки и личные заметки.
-- Статусы активности, время последнего посещения и эмодзи у аватаров.
-- Пароли хранятся только в виде bcrypt-хэшей; сессии подписываются JWT.
+## Build APK
+Open `android-native` in Android Studio or run:
 
-Видеозвонки и отдельное объектное хранилище больших медиафайлов — возможные следующие этапы.
+```bash
+gradle -p android-native assembleDebug
+```
 
-## Стек
-React + Vite + TypeScript, Express, PostgreSQL, Socket.IO.
-
-## Локальный запуск
-1. Установить Node.js 20+ и PostgreSQL.
-2. Создать БД и выполнить `server/schema.sql`.
-3. Скопировать `.env.example` в `.env`, указать `DATABASE_URL` и длинный случайный `JWT_SECRET`.
-4. Выполнить `npm install`.
-5. В одном терминале `npm run dev:server`, в другом `npm run dev`.
-6. Открыть адрес Vite из терминала (обычно http://localhost:5173).
-
-## Переменные окружения
-См. `.env.example`. Не коммитьте `.env`, пароли, JWT-секреты или пользовательские загрузки.
-
-## Важно
-GitHub хранит исходный код, но сам по себе не запускает приложение и не предоставляет PostgreSQL/realtime-хранилище. Для публикации понадобятся хостинг backend/frontend и управляемая PostgreSQL. Этот репозиторий пока не подключён к production-сервисам.
+The GitHub Actions workflow builds a debug APK on every change to the native app.
