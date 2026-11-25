@@ -66,6 +66,7 @@ private fun PhoneFlipper(saved: String?, persist: (String) -> Unit) {
     var pixelTarget by remember { mutableIntStateOf(Random.nextInt(9)) }
     var pixelHits by remember { mutableIntStateOf(0) }
     var batteryTaps by remember { mutableIntStateOf(0) }
+    var donuts by remember { mutableIntStateOf(0) }
     var tradeLot by remember { mutableStateOf<MarketLot?>(null) }
     var tradeOffer by remember { mutableIntStateOf(0) }
     var tradeMessage by remember { mutableStateOf("") }
@@ -109,11 +110,11 @@ private fun PhoneFlipper(saved: String?, persist: (String) -> Unit) {
     MaterialTheme(colorScheme = darkColorScheme(primary = accent, background = bg, surface = panel, onSurface = ink)) {
         Scaffold(containerColor = bg, bottomBar = {
             NavigationBar(containerColor = Color(0xFF12111D)) {
-                listOf("Дом", "Рынок", "Диагностика", "Склад").forEach { label ->
+                listOf("Дом", "TelBuy", "Диагностика", "Склад").forEach { label ->
                     NavigationBarItem(
                         selected = tab == label,
                         onClick = { tab = label; checked = emptySet() },
-                        icon = { Text(when (label) { "Дом" -> "⌂"; "Рынок" -> "↗"; "Диагностика" -> "⌁"; else -> "▣" }, color = if (tab == label) accent else muted) },
+                        icon = { Text(when (label) { "Дом" -> "⌂"; "TelBuy" -> "↗"; "Диагностика" -> "⌁"; else -> "▣" }, color = if (tab == label) accent else muted) },
                         label = { Text(label, fontSize = 10.sp) }
                     )
                 }
@@ -127,11 +128,22 @@ private fun PhoneFlipper(saved: String?, persist: (String) -> Unit) {
                 }
                 when (tab) {
                     "Дом" -> LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        item { CardBox { Text("ТВОЙ МАГАЗИН", color = accent, fontWeight = FontWeight.Bold); Text(note, color = ink); Text("Продаж: $sales   •   Телефонов: ${stock.size}", color = muted) } }
-                        item { CardBox { Text("Быстрый старт", color = ink, fontSize = 18.sp, fontWeight = FontWeight.Bold); Button(onClick = { tab = "Рынок" }, modifier = Modifier.fillMaxWidth()) { Text("Открыть рынок") } } }
+                        item { CardBox {
+                            Text("PHONE • главный экран", color = accent, fontWeight = FontWeight.Bold)
+                            Text("Баланс $cash ₽", color = ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                            Text(note, color = muted)
+                            Text("Приложения", color = ink, fontWeight = FontWeight.Bold)
+                            listOf("AppInst" to "⬇", "TelBuy" to "🛍", "Пончики" to "🍩", "Диагностика" to "⌁", "Склад" to "▣").forEach { (app, icon) ->
+                                Row(Modifier.fillMaxWidth().background(Color(0xFF25213A), RoundedCornerShape(12.dp)).clickable { tab = app }.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Text(icon, fontSize = 24.sp); Text(app, color = ink, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                            Text("Продаж: $sales • Телефонов: ${stock.size} • Пончиков: $donuts", color = muted)
+                        } }
+                        item { CardBox { Text("Быстрый старт", color = ink, fontSize = 18.sp, fontWeight = FontWeight.Bold); Button(onClick = { tab = "TelBuy" }, modifier = Modifier.fillMaxWidth()) { Text("Открыть рынок") } } }
                         item { CardBox { Text("Как играть", color = ink, fontWeight = FontWeight.Bold); Text("Покупай телефоны дешевле рыночной цены, проверяй 4 узла, ремонтируй и продавай с прибылью.", color = muted) } }
                     }
-                    "Рынок" -> LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    "TelBuy" -> LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         item { Text("Свежие объявления", color = ink, fontSize = 20.sp, fontWeight = FontWeight.Bold) }
                         items(market) { lot ->
                             CardBox {
@@ -161,6 +173,20 @@ private fun PhoneFlipper(saved: String?, persist: (String) -> Unit) {
                                 }
                             }
                         }
+                    }
+                    "AppInst" -> LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        item { CardBox { Text("AppInst • магазин приложений", color = accent, fontSize = 20.sp, fontWeight = FontWeight.Bold); Text("Игровые приложения для твоего телефона", color = muted) } }
+                        item { CardBox(Modifier.clickable { tab = "TelBuy" }) { Text("TelBuy", color = ink, fontWeight = FontWeight.Bold); Text("Рынок телефонов • Установлено", color = green) } }
+                        item { CardBox(Modifier.clickable { tab = "Пончики" }) { Text("Donut Club", color = ink, fontWeight = FontWeight.Bold); Text("Магазин пончиков • Установлено", color = green) } }
+                        item { CardBox(Modifier.clickable { tab = "Диагностика" }) { Text("Phone Check", color = ink, fontWeight = FontWeight.Bold); Text("Диагностика • Установлено", color = green) } }
+                    }
+                    "Пончики" -> LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        item { CardBox {
+                            Text("DONUT CLUB", color = accent, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                            Text("Пончиков куплено: $donuts", color = ink)
+                            Text("Пончик стоит 350 ₽ и даёт +5 XP.", color = muted)
+                            Button(onClick = { if (cash >= 350) { cash -= 350; donuts++; gainXp(5); note = "Пончик куплен • +5 XP"; save() } else note = "Не хватает 350 ₽." }, modifier = Modifier.fillMaxWidth(), enabled = cash >= 350) { Text("Купить пончик • 350 ₽") }
+                        } }
                     }
                     "Диагностика" -> if (current == null) {
                         EmptyPanel("Склад пуст", "Купи первый телефон на рынке.") { tab = "Рынок" }
