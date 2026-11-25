@@ -52,7 +52,8 @@ export default function App() {
       const data=await api("/achievements/"+key,token,{method:"POST",body:JSON.stringify({})});
       setMe(current=>current?{...current,achievements:data.achievements}:current);
       setProfileTarget(current=>current&&current.id===me.id?{...current,achievements:data.achievements}:current);
-      if(data.newlyUnlocked)showEasterEgg("🏅 Достижение получено: "+data.achievement.emoji+" "+data.achievement.title);\n      if(data.bonusUnlocked)showEasterEgg("👑 Бонус! Ты собрал все шесть секретов DTR!");
+      if(data.newlyUnlocked)showEasterEgg("🏅 Достижение получено: "+data.achievement.emoji+" "+data.achievement.title);
+      if(data.bonusUnlocked)showEasterEgg("👑 Бонус! Ты собрал все шесть секретов DTR!");
     }catch(e:any){console.error("Achievement unlock failed:",e);}
   };
   const handleSecretLogoClick=()=>{
