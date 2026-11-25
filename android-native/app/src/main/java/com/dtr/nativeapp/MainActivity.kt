@@ -165,7 +165,8 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                 c.optString("chatId"),
                 c.optString("title").takeIf { it.isNotBlank() && it != "null" } ?: user?.optString("displayName", "Чат").orEmpty().ifBlank { "Чат" },
                 c.optString("lastMessage").takeIf { it.isNotBlank() && it != "null" } ?: "Нет сообщений",
-                c.optString("type", "direct")
+                c.optString("type", "direct"),
+                user?.optString("id")?.takeIf { it.isNotBlank() && it != "null" }
             )
         }
     }
@@ -189,7 +190,22 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                 loadChats()
                 val opts = IO.Options.builder().setAuth(mapOf("token" to token)).setReconnection(true).build()
                 val live = IO.socket(BASE_URL, opts)
-                live.on("call:incoming") { args ->\n                    val data = args.firstOrNull() as? JSONObject ?: return@on\n                    scope.launch {\n                        try {\n                            val from = data.optString("from")\n                            val profileData = request("/api/users/$from/profile")\n                            val u = profileData.optJSONObject("user") ?: JSONObject()\n                            val offer = data.optJSONObject("offer")\n                            call = DtrCall(from, data.optString("chatId"), u.optString("displayName", "Контакт"), data.optBoolean("video"), true, "incoming", offer)\n                        } catch (_: Exception) { live.emit("call:end", JSONObject().put("to", data.optString("from")).put("chatId", data.optString("chatId"))) }\n                    }\n                }\n                live.on("call:answered") { args -> val data = args.firstOrNull() as? JSONObject ?: return@on; scope.launch { callEngine?.onAnswer(data.optJSONObject("answer") ?: JSONObject()) } }\n                live.on("call:ice-candidate") { args -> val data = args.firstOrNull() as? JSONObject ?: return@on; scope.launch { callEngine?.onIce(data) } }\n                live.on("call:ended") { scope.launch { finishCall(false) } }\n                live.on("chat:message") { args ->
+                live.on("call:incoming") { args ->
+                    val data = args.firstOrNull() as? JSONObject ?: return@on
+                    scope.launch {
+                        try {
+                            val from = data.optString("from")
+                            val profileData = request("/api/users/$from/profile")
+                            val u = profileData.optJSONObject("user") ?: JSONObject()
+                            val offer = data.optJSONObject("offer")
+                            call = DtrCall(from, data.optString("chatId"), u.optString("displayName", "Контакт"), data.optBoolean("video"), true, "incoming", offer)
+                        } catch (_: Exception) { live.emit("call:end", JSONObject().put("to", data.optString("from")).put("chatId", data.optString("chatId"))) }
+                    }
+                }
+                live.on("call:answered") { args -> val data = args.firstOrNull() as? JSONObject ?: return@on; scope.launch { callEngine?.onAnswer(data.optJSONObject("answer") ?: JSONObject()) } }
+                live.on("call:ice-candidate") { args -> val data = args.firstOrNull() as? JSONObject ?: return@on; scope.launch { callEngine?.onIce(data) } }
+                live.on("call:ended") { scope.launch { finishCall(false) } }
+                live.on("chat:message") { args ->
                     val obj = args.firstOrNull() as? JSONObject ?: return@on
                     val msg = DtrMessage(obj.optString("id"), obj.optString("senderId"), obj.optString("body"), obj.optString("displayName"), obj.optString("createdAt"))
                     if (active?.id == obj.optString("chatId")) {
