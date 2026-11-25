@@ -9,6 +9,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
 import androidx.compose.ui.viewinterop.AndroidView
 import org.webrtc.SurfaceViewRenderer
 import androidx.activity.ComponentActivity
@@ -467,20 +469,40 @@ private fun fieldColors() = OutlinedTextFieldDefaults.colors(
 
 @Composable
 private fun DtrLogo(size: Int) {
-    Box(Modifier.size(size.dp).background(Panel, CircleShape), contentAlignment = Alignment.Center) {
-        Box(Modifier.fillMaxSize().padding(3.dp).background(Accent.copy(alpha = .16f), CircleShape))
-        Text("D", color = Color.White, fontSize = (size * .56f).sp, fontWeight = FontWeight.Black)
-        Box(Modifier.align(Alignment.BottomEnd).padding(7.dp).size((size * .13f).dp).background(Accent, CircleShape))
-    }
+    Image(
+        painter = painterResource(id = R.drawable.ic_dtr_logo),
+        contentDescription = "Логотип DTR",
+        modifier = Modifier.size(size.dp)
+    )
 }
 
 @Composable
 private fun NativeBottomNav(page: String, onSelect: (String) -> Unit) {
-    val items = listOf("friends" to "Друзья", "feed" to "Лента", "chats" to "Чаты", "stories" to "Истории", "settings" to "Ещё")
-    Row(Modifier.fillMaxWidth().background(Panel).navigationBarsPadding().padding(horizontal = 2.dp, vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        items.forEach { (key, label) ->
-            TextButton(onClick = { onSelect(key) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 2.dp, vertical = 6.dp)) {
-                Text(label, color = if (page == key) Accent else Muted, fontSize = 10.sp, maxLines = 1, fontWeight = if (page == key) FontWeight.Bold else FontWeight.Normal)
+    val items = listOf(
+        Triple("friends", "♙", "Друзья"),
+        Triple("feed", "▤", "Лента"),
+        Triple("chats", "▣", "Чаты"),
+        Triple("stories", "◉", "Истории"),
+        Triple("settings", "⚙", "Ещё")
+    )
+    Row(
+        Modifier.fillMaxWidth().background(Panel).navigationBarsPadding().padding(horizontal = 5.dp, vertical = 5.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        items.forEach { (key, glyph, label) ->
+            val selected = page == key
+            TextButton(
+                onClick = { onSelect(key) },
+                modifier = Modifier.weight(1f).background(
+                    if (selected) Accent.copy(alpha = .14f) else Color.Transparent,
+                    RoundedCornerShape(13.dp)
+                ),
+                contentPadding = PaddingValues(horizontal = 1.dp, vertical = 5.dp)
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(glyph, color = if (selected) Accent else Muted, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(label, color = if (selected) Accent else Muted, fontSize = 9.sp, maxLines = 1, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+                }
             }
         }
     }
