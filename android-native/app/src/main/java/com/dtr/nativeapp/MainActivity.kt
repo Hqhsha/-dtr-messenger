@@ -327,18 +327,30 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                         val mine = msg.senderId == me?.id
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start) {
                             Column(
-                                Modifier.widthIn(max = 310.dp).background(if (mine) Color(0xFF40336A) else Panel, RoundedCornerShape(17.dp)).padding(horizontal = 13.dp, vertical = 9.dp)
+                                Modifier.widthIn(max = 310.dp).background(if (selectedMessage?.id==msg.id) Accent.copy(alpha=.22f) else if (mine) Color(0xFF40336A) else Panel, RoundedCornerShape(17.dp)).clickable { selectedMessage=if(selectedMessage?.id==msg.id)null else msg }.padding(horizontal = 13.dp, vertical = 9.dp)
                             ) {
                                 if (!mine) Text(msg.displayName.ifBlank { "Участник" }, color = Accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                 Text(msg.body, color = Color.White, fontSize = 15.sp)
+                                if(msg.editedAt!=null) Text("изменено",color=Muted,fontSize=10.sp)
+                                if(msg.reactions.isNotEmpty()) Text(msg.reactions.joinToString("  ") { it.emoji+" "+it.count },color=Accent,fontSize=12.sp,modifier=Modifier.padding(top=4.dp))
                             }
                         }
+                    }
+                }
+                selectedMessage?.let { selected ->
+                    Row(Modifier.fillMaxWidth().background(Panel).padding(horizontal=6.dp,vertical=2.dp),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically) {
+                        listOf("👍","❤️","😂","🔥").forEach { emoji -> TextButton(onClick={scope.launch{try{val d=request("/api/messages/"+selected.id+"/reactions","POST",JSONObject().put("emoji",emoji));val a=d.optJSONArray("reactions")?:JSONArray();val updated=(0 until a.length()).mapNotNull{k->a.optJSONObject(k)?.let{DtrReaction(it.optString("emoji"),it.optInt("count"),it.optBoolean("mine"))}};messages=messages.map{if(it.id==selected.id)it.copy(reactions=updated)else it};selectedMessage=null}catch(e:Exception){error=e.message}}}){Text(emoji)} }
+                        if(selected.senderId==me?.id) {
+                            TextButton(onClick={editingMessage=selected;draft=selected.body;selectedMessage=null}){Text("Изменить",color=Accent)}
+                            TextButton(onClick={scope.launch{try{request("/api/messages/"+selected.id,"DELETE",null);messages=messages.map{if(it.id==selected.id)it.copy(body="Сообщение удалено",editedAt=null,reactions=emptyList())else it};selectedMessage=null}catch(e:Exception){error=e.message}}}){Text("Удалить",color=Color(0xFFFF7777))}
+                        }
+                        TextButton(onClick={selectedMessage=null}){Text("×",color=Muted)}
                     }
                 }
                 Row(Modifier.fillMaxWidth().background(Panel).padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
                         value = draft, onValueChange = { draft = it }, modifier = Modifier.weight(1f),
-                        placeholder = { Text("Сообщение…", color = Muted) }, shape = RoundedCornerShape(24.dp),
+                        placeholder = { Text(if(editingMessage!=null) "Редактирование…" else "Сообщение…", color = Muted) }, shape = RoundedCornerShape(24.dp),
                         maxLines = 4, colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White, unfocusedTextColor = Color.White,
                             focusedBorderColor = Accent, unfocusedBorderColor = Color.Transparent,
@@ -354,11 +366,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                             draft = ""
                             scope.launch {
                                 try {
-                                    val data = request("/api/chats/${chat.id}/messages", "POST", JSONObject().put("body", text))
-                                    val m = data.optJSONObject("message") ?: return@launch
-                                    val item = DtrMessage(m.optString("id"), m.optString("senderId"), m.optString("body"), m.optString("displayName"), m.optString("createdAt"))
-                                    if (messages.none { it.id == item.id }) messages = messages + item
-                                    loadChats()
+                                    if(editingMessage!=null) { val target=editingMessage!!; val data=request("/api/messages/"+target.id,"PATCH",JSONObject().put("body",text)); val m=data.optJSONObject("message")?:return@launch; messages=messages.map{if(it.id==target.id)it.copy(body=m.optString("body"),editedAt=m.optString("editedAt"))else it}; editingMessage=null } else { val data=request("/api/chats/"+chat.id+"/messages","POST",JSONObject().put("body",text)); val m=data.optJSONObject("message")?:return@launch; val item=DtrMessage(m.optString("id"),m.optString("senderId"),m.optString("body"),m.optString("displayName"),m.optString("createdAt")); if(messages.none{it.id==item.id})messages=messages+item }; loadChats()
                                 } catch (e: Exception) { draft = text; error = e.message }
                             }
                         }
