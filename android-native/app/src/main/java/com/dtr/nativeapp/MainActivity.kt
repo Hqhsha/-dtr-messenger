@@ -31,6 +31,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.DynamicFeed
+import androidx.compose.material.icons.filled.AutoStories
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.VideoCall
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -404,10 +417,10 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                         Text("В сети • DTR", color = Muted, fontSize = 11.sp)
                     }
                     if (active!!.type == "direct" && active!!.peerId != null) {
-                        TextButton(onClick = { beginCall(false) }) { Text("☎", color = Accent, fontSize = 20.sp) }
-                        TextButton(onClick = { beginCall(true) }) { Text("▣", color = Accent, fontSize = 20.sp) }
+                        IconButton(onClick = { beginCall(false) }) { Icon(Icons.Filled.Call, contentDescription = "Голосовой звонок", tint = Accent) }
+                        IconButton(onClick = { beginCall(true) }) { Icon(Icons.Filled.VideoCall, contentDescription = "Видеозвонок", tint = Accent) }
                     }
-                    TextButton(onClick = { scope.launch { runCatching { loadMessages(active!!) } } }) { Text("↻", color = Accent, fontSize = 20.sp) }
+                    IconButton(onClick = { scope.launch { runCatching { loadMessages(active!!) } } }) { Icon(Icons.Filled.Refresh, contentDescription = "Обновить сообщения", tint = Accent) }
                 }
                 LazyColumn(Modifier.weight(1f).fillMaxWidth().background(Bg).padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                     items(messages, key = { it.id }) { msg ->
@@ -436,13 +449,13 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                 }
                 Row(Modifier.fillMaxWidth().background(Color(0xFF202127)).padding(horizontal = 9.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (editingMessage == null) {
-                        IconButton(onClick = { imagePicker.launch("image/*") }, enabled = !loading && !isRecordingVoice) { Text("＋", color = Accent, fontSize = 24.sp) }
-                        IconButton(onClick = { videoPicker.launch("video/*") }, enabled = !loading && !isRecordingVoice) { Text("▣", color = Accent, fontSize = 19.sp) }
+                        IconButton(onClick = { imagePicker.launch("image/*") }, enabled = !loading && !isRecordingVoice) { Icon(Icons.Filled.AttachFile, contentDescription = "Прикрепить файл", tint = Accent) }
+                        IconButton(onClick = { videoPicker.launch("video/*") }, enabled = !loading && !isRecordingVoice) { Icon(Icons.Filled.Image, contentDescription = "Отправить видео", tint = Accent) }
                         IconButton(onClick = {
                             if (isRecordingVoice) stopVoiceRecording()
                             else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) startVoiceRecording()
                             else { startRecordingAfterPermission = true; audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO) }
-                        }, enabled = !loading) { Text(if (isRecordingVoice) "■" else "🎙", color = if (isRecordingVoice) Color(0xFFFF7777) else Accent, fontSize = 20.sp) }
+                        }, enabled = !loading) { Icon(if (isRecordingVoice) Icons.Filled.Stop else Icons.Filled.Mic, contentDescription = if (isRecordingVoice) "Остановить запись" else "Записать голосовое", tint = if (isRecordingVoice) Color(0xFFFF7777) else Accent) }
                     }
                     OutlinedTextField(
                         value = draft, onValueChange = { draft = it }, modifier = Modifier.weight(1f),
@@ -587,31 +600,32 @@ private fun DtrLogo(size: Int) {
 @Composable
 private fun NativeBottomNav(page: String, onSelect: (String) -> Unit) {
     val items = listOf(
-        Triple("friends", "♙", "Друзья"),
-        Triple("feed", "▤", "Лента"),
-        Triple("chats", "▣", "Чаты"),
-        Triple("stories", "◉", "Истории"),
-        Triple("settings", "⚙", "Ещё")
+        Triple("friends", Icons.Filled.Groups, "Контакты"),
+        Triple("feed", Icons.Filled.DynamicFeed, "Лента"),
+        Triple("chats", Icons.Filled.Chat, "Чаты"),
+        Triple("stories", Icons.Filled.AutoStories, "Истории"),
+        Triple("settings", Icons.Filled.Settings, "Настройки")
     )
-    Row(
-        Modifier.fillMaxWidth().background(Panel).navigationBarsPadding().padding(horizontal = 5.dp, vertical = 5.dp),
-        horizontalArrangement = Arrangement.spacedBy(3.dp)
+    NavigationBar(
+        modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
+        containerColor = Panel,
+        contentColor = Color.White,
+        tonalElevation = 0.dp
     ) {
-        items.forEach { (key, glyph, label) ->
-            val selected = page == key
-            TextButton(
+        items.forEach { (key, icon, label) ->
+            NavigationBarItem(
+                selected = page == key,
                 onClick = { onSelect(key) },
-                modifier = Modifier.weight(1f).background(
-                    if (selected) Accent.copy(alpha = .14f) else Color.Transparent,
-                    RoundedCornerShape(13.dp)
-                ),
-                contentPadding = PaddingValues(horizontal = 1.dp, vertical = 5.dp)
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(glyph, color = if (selected) Accent else Muted, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Text(label, color = if (selected) Accent else Muted, fontSize = 9.sp, maxLines = 1, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
-                }
-            }
+                icon = { Icon(icon, contentDescription = label, modifier = Modifier.size(23.dp)) },
+                label = { Text(label, maxLines = 1, fontSize = 10.sp) },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = Accent,
+                    selectedTextColor = Accent,
+                    indicatorColor = Accent.copy(alpha = .16f),
+                    unselectedIconColor = Muted,
+                    unselectedTextColor = Muted
+                )
+            )
         }
     }
 }
