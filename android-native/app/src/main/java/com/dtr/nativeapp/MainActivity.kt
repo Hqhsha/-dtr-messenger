@@ -103,8 +103,6 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
     var call by remember { mutableStateOf<DtrCall?>(null) }
     var callEngine by remember { mutableStateOf<DtrCallEngine?>(null) }
     var pendingCallAction by remember { mutableStateOf<(() -> Unit)?>(null) }
-    var updateStatus by remember { mutableStateOf<String?>(null) }
-    var updateUrl by remember { mutableStateOf<String?>(null) }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
         if (grants.values.all { it }) pendingCallAction?.invoke() else error = "Для звонка нужны разрешения на микрофон и камеру."
         pendingCallAction = null
@@ -504,6 +502,9 @@ private fun NativeFeaturePage(
     var error by remember(page) { mutableStateOf<String?>(null) }
     var info by remember(page) { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    var updateStatus by remember { mutableStateOf<String?>(null) }
+    var updateUrl by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
     val title = when (page) {
         "friends" -> "Друзья и контакты"
         "feed" -> "Общая лента"
