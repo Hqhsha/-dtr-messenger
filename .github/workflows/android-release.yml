@@ -47,6 +47,21 @@ jobs:
               manifest = manifest.replace("    <application", additions + "    <application", 1)
               path.write_text(manifest)
           PY
+      - name: Set Android version
+        run: |
+          VERSION_NAME="${GITHUB_REF_NAME#v}"
+          VERSION_CODE="$(python3 -c 'import sys; a=list(map(int,sys.argv[1].split("."))); print(a[0]*1000000+a[1]*1000+a[2])' "$VERSION_NAME")"
+          python3 - "$VERSION_CODE" "$VERSION_NAME" <<'PY'
+          import re, sys
+          from pathlib import Path
+          path = Path("android/app/build.gradle")
+          text = path.read_text()
+          text, count = re.subn(r'(defaultConfig\\s*\\{)', r'\\1\\n        versionCode ' + sys.argv[1] + '\\n        versionName "' + sys.argv[2] + '"', text, count=1)
+          if count != 1:
+              raise SystemExit("Could not set Android versionCode/versionName")
+          text = re.sub(r'\\n\\s*versionCode\\s+\\d+', '', text, count=1) if text.count("versionCode") > 1 else text
+          path.write_text(text)
+          PY
       - name: Decode signing key
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
