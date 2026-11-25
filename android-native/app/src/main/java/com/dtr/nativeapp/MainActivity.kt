@@ -69,10 +69,12 @@ import io.socket.client.Socket
 import java.util.concurrent.TimeUnit
 
 private const val BASE_URL = "https://dtr-messenger-z1ee.onrender.com"
-private val Bg = Color(0xFF17181D)
-private val Panel = Color(0xFF24252C)
-private val Accent = Color(0xFF8B849F)
-private val Muted = Color(0xFFA5A6B1)
+private val Bg = Color(0xFFF8F6FC)
+private val Panel = Color(0xFFFFFFFF)
+private val Accent = Color(0xFF9C72D2)
+private val Muted = Color(0xFF777087)
+private val TextMain = Color(0xFF30263D)
+private val SoftPanel = Color(0xFFF0EAF8)
 private val http = OkHttpClient.Builder()
     .connectTimeout(20, TimeUnit.SECONDS)
     .readTimeout(30, TimeUnit.SECONDS)
@@ -89,9 +91,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val prefs = getSharedPreferences("dtr-native", MODE_PRIVATE)
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme(
+            MaterialTheme(colorScheme = lightColorScheme(
                 primary = Accent, background = Bg, surface = Panel,
-                onBackground = Color.White, onSurface = Color.White
+                onBackground = TextMain, onSurface = TextMain
             )) {
                 DtrApp(
                     savedToken = prefs.getString("token", null),
@@ -375,7 +377,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                         DtrLogo(38)
                         Spacer(Modifier.width(10.dp))
                         Column {
-                            Text("DTR", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                            Text("DTR", color = TextMain, fontSize = 24.sp, fontWeight = FontWeight.Bold)
                             Text("Мессенджер", color = Muted, fontSize = 12.sp)
                         }
                     }
@@ -425,7 +427,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
         } else {
             Column(Modifier.fillMaxSize()) {
                 Row(
-                    Modifier.fillMaxWidth().background(Color(0xFF202127)).padding(horizontal = 12.dp, vertical = 10.dp),
+                    Modifier.fillMaxWidth().background(Panel).padding(horizontal = 12.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = { active = null; page = "chats" }) { Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = Color.White) }
@@ -444,7 +446,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                         val mine = msg.senderId == me?.id
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start) {
                             Column(
-                                Modifier.widthIn(max = 320.dp).background(if (selectedMessage?.id==msg.id) Accent.copy(alpha=.22f) else if (mine) Color(0xFF353B4B) else Color(0xFF25272F), RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = if (mine) 18.dp else 5.dp, bottomEnd = if (mine) 5.dp else 18.dp)).clickable { selectedMessage=if(selectedMessage?.id==msg.id)null else msg }.padding(horizontal = 13.dp, vertical = 9.dp)
+                                Modifier.widthIn(max = 320.dp).background(if (selectedMessage?.id==msg.id) Accent.copy(alpha=.22f) else if (mine) Color(0xFFE4D5F7) else Color(0xFFFFFFFF), RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = if (mine) 18.dp else 5.dp, bottomEnd = if (mine) 5.dp else 18.dp)).clickable { selectedMessage=if(selectedMessage?.id==msg.id)null else msg }.padding(horizontal = 13.dp, vertical = 9.dp)
                             ) {
                                 if (!mine) Text(msg.displayName.ifBlank { "Участник" }, color = Accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                 Text(when(msg.messageType) { "image" -> "▧  Фото\n${msg.body}"; "video" -> "▶  Видео\n${msg.body}"; "audio" -> "♫  Голосовое сообщение\n${msg.body}"; else -> msg.body }, color = Color.White, fontSize = 15.sp)
@@ -507,7 +509,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
 
 @Composable
 private fun CallOverlay(call: DtrCall, engine: DtrCallEngine?, onAccept: () -> Unit, onEnd: () -> Unit) {
-    Surface(Modifier.fillMaxSize(), color = Color(0xF20A0910)) {
+    Surface(Modifier.fillMaxSize(), color = Color(0xFFF4EFFB)) {
         Column(Modifier.fillMaxSize().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Text(if (call.video) "Видеозвонок" else "Голосовой звонок", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
