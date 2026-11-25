@@ -293,7 +293,7 @@ app.post("/api/achievements/:key",auth,async(req:AuthedRequest,res)=>{
   if(!achievementCatalog[key])return res.status(400).json({error:"Неизвестное достижение"});
   const inserted=await pool.query("INSERT INTO user_achievements(user_id,achievement_key) VALUES($1,$2) ON CONFLICT(user_id,achievement_key) DO NOTHING RETURNING achievement_key,unlocked_at",[req.userId,key]);
   const all=await pool.query("SELECT achievement_key AS key,unlocked_at AS \"unlockedAt\" FROM user_achievements WHERE user_id=$1 ORDER BY unlocked_at",[req.userId]);
-  res.json({newlyUnlocked:inserted.rowCount>0,achievement:{key,title:achievementCatalog[key].title,emoji:achievementCatalog[key].emoji,description:achievementCatalog[key].description},achievements:all.rows.map((a:any)=>({...a,...achievementCatalog[a.key]}))});
+  res.json({newlyUnlocked:Boolean(inserted.rowCount&&inserted.rowCount>0),achievement:{key,title:achievementCatalog[key].title,emoji:achievementCatalog[key].emoji,description:achievementCatalog[key].description},achievements:all.rows.map((a:any)=>({...a,...achievementCatalog[a.key]}))});
 });
 app.get("/api/users/:userId/profile", auth, async (req: AuthedRequest, res) => {
   const targetId = String(String(req.params.userId));
