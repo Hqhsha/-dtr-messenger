@@ -61,9 +61,24 @@ jobs:
               for permission in permissions
               if f'android:name="{permission}"' not in manifest
           )
+          features = [
+              '    <uses-feature android:name="android.hardware.camera" android:required="false" />\\n',
+              '    <uses-feature android:name="android.hardware.microphone" android:required="false" />\\n',
+          ]
+          for feature in features:
+              if feature.strip() not in manifest:
+                  manifest = manifest.replace("    <application", feature + "    <application", 1)
           if additions:
               manifest = manifest.replace("    <application", additions + "    <application", 1)
               path.write_text(manifest)
+          else:
+              path.write_text(manifest)
+
+          # Request runtime access on the first app launch. Capacitor's default
+          # BridgeWebChromeClient then grants WebView getUserMedia requests.
+          java = Path("android/app/src/main/java/com/dtr/messenger/MainActivity.java")
+          java.parent.mkdir(parents=True, exist_ok=True)
+          java.write_text("""package com.dtr.messenger;\n\nimport android.Manifest;\nimport android.content.pm.PackageManager;\nimport android.os.Bundle;\nimport androidx.core.app.ActivityCompat;\nimport androidx.core.content.ContextCompat;\nimport com.getcapacitor.BridgeActivity;\n\npublic class MainActivity extends BridgeActivity {\n    @Override\n    public void onCreate(Bundle savedInstanceState) {\n        super.onCreate(savedInstanceState);\n        boolean cameraMissing = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED;\n        boolean micMissing = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED;\n        if (cameraMissing || micMissing) {\n            ActivityCompat.requestPermissions(this, new String[] { Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO }, 9001);\n        }\n    }\n}\n""")
           PY
 
       - name: Set Android version
