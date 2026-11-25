@@ -520,6 +520,10 @@ private fun NativeFeaturePage(
     var input by remember(page) { mutableStateOf("") }
     var secondary by remember(page) { mutableStateOf("") }
     var searchResults by remember(page) { mutableStateOf<List<JSONObject>>(emptyList()) }
+    var incomingRows by remember(page) { mutableStateOf<List<JSONObject>>(emptyList()) }
+    var outgoingRows by remember(page) { mutableStateOf<List<JSONObject>>(emptyList()) }
+    var favoriteIds by remember(page) { mutableStateOf<Set<String>>(emptySet()) }
+    var favoritesOnly by remember(page) { mutableStateOf(false) }
     var busy by remember(page) { mutableStateOf(false) }
     var error by remember(page) { mutableStateOf<String?>(null) }
     var info by remember(page) { mutableStateOf<String?>(null) }
@@ -563,6 +567,11 @@ private fun NativeFeaturePage(
             rows = if (arr != null) (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }
                 else if (page == "settings") listOf(data.optJSONObject("user") ?: JSONObject())
                 else emptyList()
+            if (page == "friends") {
+                incomingRows = data.optJSONArray("incoming")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } } ?: emptyList()
+                outgoingRows = data.optJSONArray("outgoing")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } } ?: emptyList()
+                favoriteIds = data.optJSONArray("favorites")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it)?.optString("id") } }?.toSet() ?: emptySet()
+            }
         } catch (e: Exception) { error = e.message ?: "Не удалось загрузить раздел" }
         finally { busy = false }
     }
@@ -575,17 +584,64 @@ private fun NativeFeaturePage(
         }
         when (page) {
             "friends" -> {
-                OutlinedTextField(value = input, onValueChange = { input = it }, modifier = Modifier.fillMaxWidth().padding(12.dp), label = { Text("Найти по логину") }, singleLine = true, colors = fieldColors(), trailingIcon = {
-                    TextButton(onClick = { scope.launch { try { val d=api("/api/users/search?q="+android.net.Uri.encode(input.trim()),"GET",null); val a=d.optJSONArray("users")?:JSONArray(); searchResults=(0 until a.length()).mapNotNull{a.optJSONObject(it)} } catch(e:Exception){error=e.message} } }) { Text("Найти", color=Accent) }
-                })
-                if (searchResults.isNotEmpty()) Text("Результаты поиска", color=Accent, modifier=Modifier.padding(horizontal=16.dp))
+                Row(Modifier.fillMaxWidth().padding(horizontal=12.dp, vertical=8.dp), verticalAlignment=Alignment.CenterVertically) {
+                    OutlinedTextField(value=input, onValueChange={input=it}, modifier=Modifier.weight(1f), label={Text("Логин (от 2 символов)")}, singleLine=true, colors=fieldColors())
+                    TextButton(onClick={scope.launch {
+                        if(input.trim().length<2){error="Введи минимум 2 символа";return@launch}
+                        try { val d=api("/api/users/search?q="+android.net.Uri.encode(input.trim()),"GET",null); val a=d.optJSONArray("users")?:JSONArray(); searchResults=(0 until a.length()).mapNotNull{a.optJSONObject(it)}; error=null }
+                        catch(e:Exception){error=e.message}
+                    }}) { Text("Найти",color=Accent) }
+                }
+                Row(Modifier.fillMaxWidth().padding(horizontal=12.dp), horizontalArrangement=Arrangement.SpaceBetween, verticalAlignment=Alignment.CenterVertically) {
+                    Text("${rows.size} друзей · ${incomingRows.size} входящих",color=Muted,fontSize=12.sp)
+                    TextButton(onClick={favoritesOnly=!favoritesOnly}) { Text(if(favoritesOnly) "★ Избранные" else "☆ Все друзья",color=Accent) }
+                }
                 LazyColumn(Modifier.weight(1f), contentPadding=PaddingValues(12.dp), verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                    items(searchResults, key={it.optString("id")}) { u ->
-                        FeatureRow(u.optString("displayName",u.optString("username")), "@"+u.optString("username"), "Добавить") {
-                            scope.launch { try { api("/api/friends/request","POST",JSONObject().put("userId",u.optString("id"))); info="Заявка отправлена"; searchResults=emptyList(); refresh() } catch(e:Exception){error=e.message} }
+                    if(searchResults.isNotEmpty()) item { Text("Результаты поиска",color=Accent,fontWeight=FontWeight.SemiBold) }
+                    items(searchResults, key={"search-"+it.optString("id")}) { u ->
+                        val id=u.optString("id")
+                        val isFriend=rows.any{it.optString("id")==id}
+                        val incoming=incomingRows.firstOrNull{it.optString("id")==id}
+                        val outgoing=outgoingRows.any{it.optString("id")==id}
+                        FeatureRow(u.optString("displayName",u.optString("username")), "@"+u.optString("username"),
+                            when { isFriend -> "Уже друг"; incoming!=null -> "Принять"; outgoing -> "Отправлена"; else -> "＋ Добавить" }) {
+                            scope.launch { try {
+                                when {
+                                    isFriend -> info="Этот пользователь уже в друзьях"
+                                    incoming!=null -> api("/api/friends/requests/"+incoming.optString("requestId"),"PATCH",JSONObject().put("action","accept"))
+                                    outgoing -> info="Заявка уже отправлена"
+                                    else -> api("/api/friends/request","POST",JSONObject().put("userId",id))
+                                }
+                                info=if(incoming!=null) "Заявка принята" else if(!isFriend&&!outgoing) "Заявка отправлена" else info
+                                refresh(); searchResults=emptyList()
+                            } catch(e:Exception){error=e.message} }
                         }
                     }
-                    items(rows, key={it.optString("id")}) { u -> FeatureRow(u.optString("displayName"), "@"+u.optString("username"), "Открыть профиль") { info="Контакт: @"+u.optString("username") } }
+                    if(incomingRows.isNotEmpty()) item { Text("Входящие заявки · ${incomingRows.size}",color=Accent,fontWeight=FontWeight.SemiBold) }
+                    items(incomingRows,key={"incoming-"+it.optString("requestId")}) { u ->
+                        Row(Modifier.fillMaxWidth().background(Panel,RoundedCornerShape(14.dp)).padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) { Text(u.optString("displayName"),color=Color.White,fontWeight=FontWeight.SemiBold); Text("@"+u.optString("username"),color=Muted,fontSize=12.sp) }
+                            TextButton(onClick={scope.launch{try{api("/api/friends/requests/"+u.optString("requestId"),"PATCH",JSONObject().put("action","accept"));refresh();info="Заявка принята"}catch(e:Exception){error=e.message}}}){Text("Принять",color=Accent)}
+                            TextButton(onClick={scope.launch{try{api("/api/friends/requests/"+u.optString("requestId"),"PATCH",JSONObject().put("action","reject"));refresh()}catch(e:Exception){error=e.message}}}){Text("Отклонить",color=Muted)}
+                        }
+                    }
+                    if(outgoingRows.isNotEmpty()) item { Text("Исходящие заявки · ${outgoingRows.size}",color=Accent,fontWeight=FontWeight.SemiBold) }
+                    items(outgoingRows,key={"outgoing-"+it.optString("id")}) { u ->
+                        FeatureRow(u.optString("displayName"),"@"+u.optString("username"),"Отменить") {
+                            scope.launch { try { api("/api/friends/"+u.optString("id"),"DELETE",null); refresh() } catch(e:Exception){error=e.message} }
+                        }
+                    }
+                    val visibleFriends=if(favoritesOnly) rows.filter{favoriteIds.contains(it.optString("id"))} else rows
+                    if(visibleFriends.isNotEmpty()) item { Text(if(favoritesOnly) "Избранные контакты" else "Мои друзья",color=Accent,fontWeight=FontWeight.SemiBold) }
+                    items(visibleFriends,key={"friend-"+it.optString("id")}) { u ->
+                        val id=u.optString("id"); val favorite=favoriteIds.contains(id)
+                        Row(Modifier.fillMaxWidth().background(Panel,RoundedCornerShape(14.dp)).padding(horizontal=8.dp,vertical=6.dp),verticalAlignment=Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f).padding(start=4.dp)) { Text(u.optString("displayName"),color=Color.White,fontWeight=FontWeight.SemiBold); Text("@"+u.optString("username"),color=Muted,fontSize=12.sp) }
+                            TextButton(onClick={scope.launch{try{api("/api/favorites/"+id,if(favorite)"DELETE" else "POST",if(favorite)null else JSONObject());favoriteIds=if(favorite)favoriteIds-id else favoriteIds+id;info=if(favorite)"Убрано из избранного" else "Добавлено в избранное"}catch(e:Exception){error=e.message}}}){Text(if(favorite)"★" else "☆",color=Accent,fontSize=18.sp)}
+                            TextButton(onClick={scope.launch{try{api("/api/friends/"+id,"DELETE",null);refresh();info="Удалено из друзей"}catch(e:Exception){error=e.message}}}){Text("Удалить",color=Muted,fontSize=11.sp)}
+                        }
+                    }
+                    if(rows.isEmpty()&&incomingRows.isEmpty()&&outgoingRows.isEmpty()&&searchResults.isEmpty()) item { Text("Пока нет контактов. Найди пользователя по логину и отправь заявку.",color=Muted,modifier=Modifier.padding(12.dp)) }
                 }
             }
             "feed" -> {
