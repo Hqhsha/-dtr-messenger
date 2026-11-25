@@ -473,7 +473,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                         TextButton(onClick={selectedMessage=null}){Text("×",color=Muted)}
                     }
                 }
-                Row(Modifier.fillMaxWidth().background(SoftPanel).padding(horizontal = 9.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().background(if (glassEnabled) SoftPanel.copy(alpha=.78f) else SoftPanel).padding(horizontal = 9.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (editingMessage == null) {
                         IconButton(onClick = { imagePicker.launch("image/*") }, enabled = !loading && !isRecordingVoice) { Icon(Icons.Filled.AttachFile, contentDescription = "Прикрепить файл", tint = Accent) }
                         IconButton(onClick = { videoPicker.launch("video/*") }, enabled = !loading && !isRecordingVoice) { Icon(Icons.Filled.Image, contentDescription = "Отправить видео", tint = Accent) }
@@ -825,7 +825,7 @@ private fun NativeFeaturePage(
             "settings" -> {
                 val user=rows.firstOrNull()?:JSONObject()
                 Row(Modifier.fillMaxWidth().background(if (glassEnabled) Panel.copy(alpha=.76f) else Panel, RoundedCornerShape(16.dp)).padding(horizontal=16.dp, vertical=12.dp), verticalAlignment=Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text("Стеклянный эффект", color=TextMain, fontWeight=FontWeight.SemiBold); Text("Прозрачные панели и мягкое размытие", color=Muted, fontSize=11.sp) }
+                    Column(Modifier.weight(1f)) { Text("Стеклянный эффект", color=TextMain, fontWeight=FontWeight.SemiBold); Text("Полупрозрачные панели; размытие в полной версии", color=Muted, fontSize=11.sp) }
                     Switch(checked=glassEnabled, onCheckedChange=onGlassChange, colors=SwitchDefaults.colors(checkedThumbColor=Accent, checkedTrackColor=Accent.copy(alpha=.35f)))
                 }
                 Button(onClick={onNavigate("fullweb")}, modifier=Modifier.fillMaxWidth().padding(horizontal=12.dp, vertical=8.dp), colors=ButtonDefaults.buttonColors(containerColor=Accent), shape=RoundedCornerShape(14.dp)) { Text("Открыть полную версию DTR") }
