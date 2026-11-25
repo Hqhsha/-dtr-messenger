@@ -29,12 +29,36 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
-      - name: Build native debug APK
-        run: gradle assembleDebug
+      - name: Decode Android signing key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64" || (echo "Missing ANDROID_KEYSTORE_BASE64" && exit 1)
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/dtr-native.jks"
+          test -s "$RUNNER_TEMP/dtr-native.jks"
+      - name: Build native APKs
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          test -n "$STORE_PASSWORD" && test -n "$KEY_ALIAS" && test -n "$KEY_PASSWORD"
+          gradle assembleDebug assembleRelease \
+            -Pandroid.injected.signing.store.file="$RUNNER_TEMP/dtr-native.jks" \
+            -Pandroid.injected.signing.store.password="$STORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
       - name: Upload native APK
         uses: actions/upload-artifact@v4
         with:
           name: DTR-Native-Android-Preview
           path: android-native/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload signed native APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: DTR-Native-Android-Signed
+          path: android-native/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
