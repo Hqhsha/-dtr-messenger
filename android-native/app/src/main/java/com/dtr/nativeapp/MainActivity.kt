@@ -353,7 +353,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
         try { loadMessages(selected) } catch (e: Exception) { error = e.message }
     }
 
-    Surface(modifier = Modifier.fillMaxSize().imePadding(), color = Bg) {
+    Surface(modifier = Modifier.fillMaxSize().statusBarsPadding().imePadding(), color = Bg) {
         if (token == null) {
             AuthScreen(
                 username, { username = it }, password, { password = it },
@@ -378,7 +378,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
         } else if (active == null && page != "chats") {
             NativeFeaturePage(page, token ?: "", api = { path, method, body -> request(path, method, body) }, onBack = { page = "chats" }, onNavigate = { page = it }, glassEnabled = glassEnabled, onGlassChange = { enabled -> glassEnabled = enabled; context.getSharedPreferences("dtr-native", 0).edit().putBoolean("glass_enabled", enabled).apply() })
         } else if (active == null) {
-            Column(Modifier.fillMaxSize().padding(horizontal = 18.dp)) {
+            Column(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
                 Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                         DtrLogo(38)
@@ -727,7 +727,7 @@ private fun NativeFeaturePage(
     }
     LaunchedEffect(page) { refresh() }
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().background(if (glassEnabled) Panel.copy(alpha=.76f) else Panel).padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().background(if (glassEnabled) Panel.copy(alpha=.76f) else Panel).padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = TextMain) }
             Text(title, color = TextMain, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             TextButton(onClick = { scope.launch { refresh() } }) { Text("↻", color = Accent, fontSize = 20.sp) }
@@ -769,10 +769,10 @@ private fun NativeFeaturePage(
                     }
                     if(incomingRows.isNotEmpty()) item { Text("Входящие заявки · ${incomingRows.size}",color=Accent,fontWeight=FontWeight.SemiBold) }
                     items(incomingRows,key={"incoming-"+it.optString("requestId")}) { u ->
-                        Row(Modifier.fillMaxWidth().background(Panel,RoundedCornerShape(14.dp)).padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) { Text(u.optString("displayName"),color=TextMain,fontWeight=FontWeight.SemiBold); Text("@"+u.optString("username"),color=Muted,fontSize=12.sp) }
-                            TextButton(onClick={scope.launch{try{api("/api/friends/requests/"+u.optString("requestId"),"PATCH",JSONObject().put("action","accept"));refresh();info="Заявка принята"}catch(e:Exception){error=e.message}}}){Text("Принять",color=Accent)}
-                            TextButton(onClick={scope.launch{try{api("/api/friends/requests/"+u.optString("requestId"),"PATCH",JSONObject().put("action","reject"));refresh()}catch(e:Exception){error=e.message}}}){Text("Отклонить",color=Muted)}
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).background(Panel,RoundedCornerShape(14.dp)).padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
+                            Column(Modifier.widthIn(min=100.dp,max=180.dp)) { Text(u.optString("displayName"),color=TextMain,fontWeight=FontWeight.SemiBold,maxLines=1); Text("@"+u.optString("username"),color=Muted,fontSize=12.sp,maxLines=1) }
+                            TextButton(onClick={scope.launch{try{api("/api/friends/requests/"+u.optString("requestId"),"PATCH",JSONObject().put("action","accept"));refresh();info="Заявка принята"}catch(e:Exception){error=e.message}}}){Text("Принять",color=Accent,maxLines=1)}
+                            TextButton(onClick={scope.launch{try{api("/api/friends/requests/"+u.optString("requestId"),"PATCH",JSONObject().put("action","reject"));refresh()}catch(e:Exception){error=e.message}}}){Text("Отклонить",color=Muted,maxLines=1)}
                         }
                     }
                     if(outgoingRows.isNotEmpty()) item { Text("Исходящие заявки · ${outgoingRows.size}",color=Accent,fontWeight=FontWeight.SemiBold) }
@@ -785,8 +785,8 @@ private fun NativeFeaturePage(
                     if(visibleFriends.isNotEmpty()) item { Text(if(favoritesOnly) "Избранные контакты" else "Мои друзья",color=Accent,fontWeight=FontWeight.SemiBold) }
                     items(visibleFriends,key={"friend-"+it.optString("id")}) { u ->
                         val id=u.optString("id"); val favorite=favoriteIds.contains(id)
-                        Row(Modifier.fillMaxWidth().background(Panel,RoundedCornerShape(14.dp)).padding(horizontal=8.dp,vertical=6.dp),verticalAlignment=Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f).padding(start=4.dp)) { Text(u.optString("displayName"),color=TextMain,fontWeight=FontWeight.SemiBold); Text("@"+u.optString("username"),color=Muted,fontSize=12.sp) }
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).background(Panel,RoundedCornerShape(14.dp)).padding(horizontal=8.dp,vertical=6.dp),verticalAlignment=Alignment.CenterVertically) {
+                            Column(Modifier.widthIn(min=100.dp,max=180.dp).padding(start=4.dp)) { Text(u.optString("displayName"),color=TextMain,fontWeight=FontWeight.SemiBold,maxLines=1); Text("@"+u.optString("username"),color=Muted,fontSize=12.sp,maxLines=1) }
                             TextButton(onClick={scope.launch{try{api("/api/favorites/"+id,if(favorite)"DELETE" else "POST",if(favorite)null else JSONObject());favoriteIds=if(favorite)favoriteIds-id else favoriteIds+id;info=if(favorite)"Убрано из избранного" else "Добавлено в избранное"}catch(e:Exception){error=e.message}}}){Text(if(favorite)"★" else "☆",color=Accent,fontSize=18.sp)}
                             TextButton(onClick={scope.launch{try{api("/api/friends/"+id,"DELETE",null);refresh();info="Удалено из друзей"}catch(e:Exception){error=e.message}}}){Text("Удалить",color=Muted,fontSize=11.sp)}
                         }
@@ -895,11 +895,11 @@ private fun NativeFeaturePage(
 @Composable
 private fun FeatureRow(title: String, subtitle: String, action: String, onAction: () -> Unit) {
     Row(Modifier.fillMaxWidth().background(Panel,RoundedCornerShape(14.dp)).padding(12.dp),verticalAlignment=Alignment.CenterVertically){
-        Column(Modifier.weight(1f)){
-            Text(title,color=TextMain,fontWeight=FontWeight.SemiBold)
-            if(subtitle.isNotBlank()) Text(subtitle,color=Muted,fontSize=12.sp)
+        Column(Modifier.weight(1f).widthIn(min=0.dp)){
+            Text(title,color=TextMain,fontWeight=FontWeight.SemiBold,maxLines=2)
+            if(subtitle.isNotBlank()) Text(subtitle,color=Muted,fontSize=12.sp,maxLines=3)
         }
-        TextButton(onClick=onAction){Text(action,color=Accent,fontSize=11.sp)}
+        TextButton(onClick=onAction, modifier=Modifier.widthIn(max=112.dp)){Text(action,color=Accent,fontSize=11.sp,maxLines=2)}
     }
 }
 
