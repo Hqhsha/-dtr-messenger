@@ -5,25 +5,19 @@ plugins {
 }
 
 android {
-    namespace = "com.dtr.nativeapp"
+    namespace = "com.dominion.phoneflipper"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.dtr.messenger.nativepreview"
+        applicationId = "com.dominion.phoneflipper"
         minSdk = 24
         targetSdk = 35
-        versionCode = (project.findProperty("nativeVersionCode") as String?)?.toInt() ?: 1004
-        versionName = project.findProperty("nativeVersionName") as String? ?: "1.4.0-native"
+        versionCode = 1
+        versionName = "0.1.0"
     }
 
     buildFeatures { buildConfig = true }
-
-    buildTypes {
-        release {
-            isMinifyEnabled = false
-        }
-    }
-
+    buildTypes { release { isMinifyEnabled = false } }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -39,12 +33,8 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("io.socket:socket.io-client:2.1.0")
-    implementation("io.github.webrtc-sdk:android:150.7871.04")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
