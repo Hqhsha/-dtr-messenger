@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
+import DtrUpdateNotice from "./DtrUpdateNotice";
 
 type Achievement = {key:string;title:string;emoji:string;description:string;unlockedAt?:string};
 type User = { id:string; username:string; displayName:string; bio:string; avatarUrl:string|null; age:number|null; agePublic:boolean; achievements?:Achievement[]; role?:string; statusEmoji?:string|null; online?:boolean; lastSeenAt?:string|null; theme?:"dark"|"light"; chatRole?:string };
@@ -384,6 +385,7 @@ export default function App() {
   const activeTitle=active?.type!=="direct"?(active?.title||(active?.type==="channel"?"Канал":"Групповой чат")):(active?.user?.displayName||"Чат");
   const activeSubtitle=active?.type==="channel"?"Канал · "+String(active.members?.length||0)+" подписчиков":active?.type==="group"?(String(active.members?.length||0)+" участников"):(active?.user?presenceText(active.user):"");
   return <main className={"shell"+(compact?" compact-mode":"")+(theme==="light"?" theme-light":"")} style={{"--dtr-accent":accent,"--dtr-wallpaper":wallpaper} as React.CSSProperties}>
+    <DtrUpdateNotice />
     <aside className={"sidebar"+(active?" mobile-hidden":"")}>
       <header className="side-head"><button className="brand-mark small secret-logo" aria-label="DTR" title="DTR" onClick={handleSecretLogoClick}>д</button><strong onClick={handleBrandWhisper} title="DTR">дтр</strong><button className="icon-btn" onClick={()=>{handleSettingsExplorer();setPage("settings");}} title="Настройки">⚙</button></header>
       <div className="profile-top-row"><button className="my-profile" onClick={()=>viewProfile(me)}><Avatar user={me}/><span><b>{me.displayName}</b><small>@{me.username}</small></span><span className="profile-arrow">›</span></button><button className="profile-stories-btn" title="Истории" onClick={()=>{handleStoryKeeper();setPage("stories");setActive(null);loadStories()}}>◉</button></div>
