@@ -175,7 +175,7 @@ app.patch("/api/profile", auth, async (req: AuthedRequest, res) => {
 });
 const storage = multer.diskStorage({ destination: uploadDir, filename: (req, file, cb) => cb(null, `${(req as AuthedRequest).userId}-${Date.now()}${path.extname(file.originalname).toLowerCase()}`) });
 const avatarUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 }, fileFilter: (_req, file, cb) => cb(null, ["image/png","image/jpeg","image/webp","image/gif"].includes(file.mimetype)) });
-const mediaUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 }, fileFilter: (_req, file, cb) => cb(null, ["image/png","image/jpeg","image/webp","image/gif","audio/webm","audio/ogg","audio/mp4","audio/mpeg","audio/wav","audio/x-wav","audio/mp4a-latm","video/mp4","video/webm","video/quicktime"].includes(file.mimetype.split(";")[0])) });
+const mediaUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 }, fileFilter: (_req, file, cb) => cb(null, ["image/png","image/jpeg","image/webp","image/gif","image/heic","image/heif","audio/webm","audio/ogg","audio/mp4","audio/mpeg","audio/wav","audio/x-wav","audio/mp4a-latm","audio/3gpp","audio/amr","audio/aac","video/mp4","video/webm","video/quicktime","video/3gpp"].includes(file.mimetype.split(";")[0])) });
 app.post("/api/profile/avatar", auth, avatarUpload.single("avatar"), async (req: AuthedRequest, res) => {
   if (!req.file) return res.status(400).json({ error: "Выбери PNG, JPG, WEBP или GIF до 5 МБ" });
   const q = await pool.query("UPDATE users SET avatar_url=$1,avatar_data=$2,avatar_mime=$3 WHERE id=$4 RETURNING *", [`db:${Date.now()}`, req.file.buffer, req.file.mimetype, req.userId]);
