@@ -199,12 +199,12 @@ class DtrCallEngine(
         pendingIce.clear()
     }
 
-    fun setMicEnabled(enabled: Boolean) {
+    fun toggleMic(enabled: Boolean) {
         micEnabled = enabled
         audioTrack?.setEnabled(enabled)
     }
 
-    fun setCameraEnabled(enabled: Boolean) {
+    fun toggleCamera(enabled: Boolean) {
         cameraEnabled = enabled
         localVideoTrack?.setEnabled(enabled)
     }
