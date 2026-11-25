@@ -365,7 +365,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                                 Modifier.widthIn(max = 310.dp).background(if (selectedMessage?.id==msg.id) Accent.copy(alpha=.22f) else if (mine) Color(0xFF40336A) else Panel, RoundedCornerShape(17.dp)).clickable { selectedMessage=if(selectedMessage?.id==msg.id)null else msg }.padding(horizontal = 13.dp, vertical = 9.dp)
                             ) {
                                 if (!mine) Text(msg.displayName.ifBlank { "Участник" }, color = Accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                Text(when(msg.messageType) { "image" -> "▧  Фото\\n${msg.body}"; "video" -> "▶  Видео\\n${msg.body}"; "audio" -> "♫  Голосовое сообщение\\n${msg.body}"; else -> msg.body }, color = Color.White, fontSize = 15.sp)
+                                Text(when(msg.messageType) { "image" -> "▧  Фото\n${msg.body}"; "video" -> "▶  Видео\n${msg.body}"; "audio" -> "♫  Голосовое сообщение\n${msg.body}"; else -> msg.body }, color = Color.White, fontSize = 15.sp)
                                 if(msg.editedAt!=null) Text("изменено",color=Muted,fontSize=10.sp)
                                 if(msg.reactions.isNotEmpty()) Text(msg.reactions.joinToString("  ") { it.emoji+" "+it.count },color=Accent,fontSize=12.sp,modifier=Modifier.padding(top=4.dp))
                             }
