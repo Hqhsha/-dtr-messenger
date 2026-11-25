@@ -341,3 +341,9 @@ button{transition:background-color .12s ease,color .12s ease}
 
 /* Friend search guidance and loading state */
 .search-hint{margin:8px 14px;padding:10px 12px;border-radius:10px;background:#ffffff05;color:#8295a5;font-size:12px;line-height:1.45}.search-loading{display:flex;align-items:center;gap:8px;color:#9db8ca}.search-loading::before{content:"";width:12px;height:12px;flex:none;border:2px solid #3b5264;border-top-color:#72b9ee;border-radius:50%;animation:dtrSearchSpin .7s linear infinite}@keyframes dtrSearchSpin{to{transform:rotate(360deg)}}
+
+
+/* Keep message action menus fully visible on short/mobile screens. */
+.message-action-items{max-height:min(340px,calc(100dvh - 96px));overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.message-actions.open.upward .message-action-items{top:auto;bottom:calc(100% + 5px)}
+@media(max-width:700px){.message-action-items{max-height:calc(100dvh - 88px);min-width:min(190px,calc(100vw - 28px));}}
