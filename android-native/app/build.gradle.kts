@@ -9,11 +9,11 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.dtr.messenger"
+        applicationId = "com.dtr.messenger.nativepreview"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1000
-        versionName = "1.0.0-native-preview"
+        versionCode = 1001
+        versionName = "1.1.0-native-preview"
     }
 
     buildTypes {
@@ -43,5 +43,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("io.socket:socket.io-client:2.1.0")
+    implementation("io.github.webrtc-sdk:android:150.7871.04")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
