@@ -872,3 +872,52 @@ img{max-width:100%}
 .theme-light .conversation-head,.theme-light .composer{box-shadow:0 5px 18px rgba(35,63,91,.04)}
 .theme-light .bubble{box-shadow:0 2px 7px rgba(35,63,91,.06)}
 .theme-light .profile-modal,.theme-light .edit-modal,.theme-light .group-modal{box-shadow:0 24px 80px rgba(35,63,91,.18)}
+
+
+/* DTR redesigned slate-violet system */
+:root{color-scheme:dark;--dtr-bg:#17181d;--dtr-panel:#202127;--dtr-panel-2:#272830;--dtr-line:#34353f;--dtr-text:#ececf1;--dtr-muted:#a5a6b1;--dtr-violet:#8b849f;--dtr-violet-soft:#373442;--dtr-violet-deep:#625b75}
+html,body{background:var(--dtr-bg)!important;color:var(--dtr-text)!important}
+body{background:#17181d!important}
+.shell{max-width:1540px;background:#1a1b20;border-color:#303139;grid-template-columns:360px minmax(0,1fr)}
+.sidebar{background:#1b1c21;border-color:#303139;padding:16px}
+.side-head,.conversation-head{background:#1b1c21!important;backdrop-filter:none;border-color:#303139}
+.side-head strong{font-weight:750;letter-spacing:-.4px}
+.brand-mark{background:#5f5b6e!important;box-shadow:none!important;color:#f3f0f8}
+.brand-mark.small{background:#5f5b6e!important}
+.my-profile{background:#25262d;border:1px solid #33343e;margin:14px 0 16px;border-radius:16px}
+.section-title{color:#8e909b;letter-spacing:1.2px;font-size:10px}
+.search,.auth-card input,.profile-panel input,.profile-panel textarea,.composer input{background:#24252c!important;border-color:#373842!important;color:#eeeef3!important;border-radius:14px!important}
+.search:focus,.composer input:focus,.auth-card input:focus{border-color:#777187!important;box-shadow:0 0 0 3px #8b849f18}
+.chat,.person{border-radius:15px;transition:background .16s ease;padding:11px 10px}
+.chat:hover,.person:hover{background:#292a31}
+.chat.active{background:#34323d!important;box-shadow:inset 3px 0 #9a92ad}
+.avatar{background:#454250!important;color:#dedbe7;font-weight:650}
+.chat small,.person small,.my-profile small,.conversation-head small{color:#a2a3ae}
+.conversation{background:#191a1f}
+.conversation-head{padding:16px 22px;border-bottom:1px solid #303139}
+.messages{padding:22px;gap:10px;background:#191a1f}
+.bubble{background:#292a31!important;border:1px solid #353640!important;color:#ededf2;box-shadow:none!important;border-radius:18px 18px 18px 6px;padding:12px 15px}
+.bubble.mine{background:#454151!important;border-color:#514d5d!important;border-radius:18px 18px 6px 18px}
+.bubble time{color:#b2b0bd}
+.sender-name{color:#c4bfd3}
+.composer{background:#1b1c21!important;border-color:#303139!important;padding:14px 20px}
+.tool-btn{background:#292a31!important;border-color:#3a3b45!important;color:#c9c5d5!important;border-radius:14px}
+.tool-btn:hover{background:#34343e!important}
+.composer .send-btn,.auth-card button:not(.link),.profile-panel>button:not(.link),.primary-action,.welcome-enter{background:#625c72!important;box-shadow:none!important;border:1px solid #777187!important;color:#f7f5fb!important}
+.composer .send-btn:hover,.primary-action:hover,.welcome-enter:hover{background:#716a83!important}
+.updates-link{background:#25262d!important;border-color:#373842!important;color:#c8c4d4}
+.profile-panel,.settings-card,.release-card,.profile-modal,.edit-modal,.group-modal{background:#222329!important;border-color:#373842!important;box-shadow:none!important}
+.settings-card h3{color:#c4bfd3}
+.settings-row{color:#e4e3e9;border-color:#363740}
+.settings-row span,.setting-toggle input{color:#a9a3b8;accent-color:#817990}
+.modal-backdrop{background:#09090dc9!important;backdrop-filter:blur(8px)}
+.call-window{background:#24252c!important;border-color:#4b4856!important;box-shadow:none!important}
+.call-avatar,.welcome-avatar .avatar{background:#5f5b6e!important;box-shadow:none!important;border-color:#817990!important}
+.auth,.welcome-screen{background:#17181d!important}
+.auth:before,.auth:after,.welcome-orb{display:none!important}
+.auth-card,.welcome-card{background:#222329!important;border:1px solid #373842!important;box-shadow:0 16px 48px #0003!important;backdrop-filter:none!important;border-radius:24px!important}
+.auth-kicker,.welcome-kicker{color:#b8b2c7}
+.auth-features span,.welcome-highlights>div{background:#292a31!important;border-color:#3a3b45!important}
+.auth-card p,.welcome-copy{color:#a5a6b1}
+.auth-card .link,.link{color:#c2bdcf}
+@media(max-width:700px){.shell{grid-template-columns:1fr}.sidebar{padding:12px}.conversation-head{padding:13px}.messages{padding:14px}.composer{padding:10px 12px;padding-bottom:max(10px,env(safe-area-inset-bottom))}}
