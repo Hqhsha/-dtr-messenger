@@ -53,6 +53,22 @@ export default function App() {
   useEffect(()=>{if(!messageMenuId)return;const closeOutside=(event:MouseEvent)=>{const target=event.target as Element|null;if(!target?.closest(".message-actions"))setMessageMenuId(null);};const closeEscape=(event:KeyboardEvent)=>{if(event.key==="Escape")setMessageMenuId(null);};document.addEventListener("pointerdown",closeOutside);document.addEventListener("keydown",closeEscape);return()=>{document.removeEventListener("pointerdown",closeOutside);document.removeEventListener("keydown",closeEscape);};},[messageMenuId]);
   useEffect(()=>{setMessageMenuId(null);},[active?.chatId]);
 
+  const [storyVideo,setStoryVideo]=useState<File|null>(null);
+  const [results,setResults] = useState<User[]>([]);
+  const [draft,setDraft] = useState("");
+  const [drafts,setDrafts]=useState<Record<string,string>>(()=>{try{return JSON.parse(localStorage.getItem("dtr-chat-drafts")||"{}")}catch{return {}}});
+  const [draftsSyncReady,setDraftsSyncReady]=useState(false);
+  const draftsSnapshotRef=useRef<Record<string,string>>({});
+  const [unreadByChat,setUnreadByChat]=useState<Record<string,number>>(()=>{try{return JSON.parse(localStorage.getItem("dtr-chat-unread")||"{}")}catch{return {}}});
+  const [mutedChats,setMutedChats]=useState<Record<string,boolean>>(()=>{try{return JSON.parse(localStorage.getItem("dtr-muted-chats")||"{}")}catch{return {}}});
+  const [pinnedChats,setPinnedChats]=useState<Record<string,boolean>>(()=>{try{return JSON.parse(localStorage.getItem("dtr-pinned-chats")||"{}")}catch{return {}}});
+  const [typingName,setTypingName]=useState("");
+  const typingTimerRef=useRef<ReturnType<typeof setTimeout>|null>(null);
+  const seenIncomingIdsRef=useRef<Set<string>>(new Set());
+  const [editingMessage,setEditingMessage]=useState<Message|null>(null);
+  const [forwardTarget,setForwardTarget]=useState<Message|null>(null);
+  const [messageSearchOpen,setMessageSearchOpen]=useState(false);
+  const [messageSearch,setMessageSearch]=useState("");
   // Keyboard shortcuts for desktop users; touch controls remain unchanged.
   useEffect(()=>{
     const onKeyDown=(event:KeyboardEvent)=>{
@@ -75,23 +91,6 @@ export default function App() {
     window.addEventListener("keydown",onKeyDown);
     return()=>window.removeEventListener("keydown",onKeyDown);
   },[active,page,searchOpen,messageSearchOpen,replyTarget]);
-
-  const [storyVideo,setStoryVideo]=useState<File|null>(null);
-  const [results,setResults] = useState<User[]>([]);
-  const [draft,setDraft] = useState("");
-  const [drafts,setDrafts]=useState<Record<string,string>>(()=>{try{return JSON.parse(localStorage.getItem("dtr-chat-drafts")||"{}")}catch{return {}}});
-  const [draftsSyncReady,setDraftsSyncReady]=useState(false);
-  const draftsSnapshotRef=useRef<Record<string,string>>({});
-  const [unreadByChat,setUnreadByChat]=useState<Record<string,number>>(()=>{try{return JSON.parse(localStorage.getItem("dtr-chat-unread")||"{}")}catch{return {}}});
-  const [mutedChats,setMutedChats]=useState<Record<string,boolean>>(()=>{try{return JSON.parse(localStorage.getItem("dtr-muted-chats")||"{}")}catch{return {}}});
-  const [pinnedChats,setPinnedChats]=useState<Record<string,boolean>>(()=>{try{return JSON.parse(localStorage.getItem("dtr-pinned-chats")||"{}")}catch{return {}}});
-  const [typingName,setTypingName]=useState("");
-  const typingTimerRef=useRef<ReturnType<typeof setTimeout>|null>(null);
-  const seenIncomingIdsRef=useRef<Set<string>>(new Set());
-  const [editingMessage,setEditingMessage]=useState<Message|null>(null);
-  const [forwardTarget,setForwardTarget]=useState<Message|null>(null);
-  const [messageSearchOpen,setMessageSearchOpen]=useState(false);
-  const [messageSearch,setMessageSearch]=useState("");
   const [emojiOpen,setEmojiOpen] = useState(false);
   const [composerMoreOpen,setComposerMoreOpen]=useState(false);
   const [profileTarget,setProfileTarget] = useState<User|null>(null);
