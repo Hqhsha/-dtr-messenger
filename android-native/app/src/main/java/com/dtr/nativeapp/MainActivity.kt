@@ -267,7 +267,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                 Spacer(Modifier.height(14.dp))
                 if (loading && chats.isEmpty()) CircularProgressIndicator(color = Accent)
                 if (chats.isEmpty() && !loading) Text("Пока нет чатов", color = Muted, modifier = Modifier.padding(top = 24.dp))
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                     items(chats, key = { it.id }) { chat ->
                         Row(
                             Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(18.dp))
