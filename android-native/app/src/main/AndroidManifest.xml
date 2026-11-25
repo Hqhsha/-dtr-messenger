@@ -8,6 +8,8 @@
     <application
         android:allowBackup="false"
         android:label="DTR"
+        android:icon="@drawable/ic_dtr_logo"
+        android:roundIcon="@drawable/ic_dtr_logo"
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="false">
         <activity
