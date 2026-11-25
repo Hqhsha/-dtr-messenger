@@ -297,6 +297,10 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                         Text(active!!.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
                         Text("DTR • чат", color = Muted, fontSize = 11.sp)
                     }
+                    if (active!!.type == "direct" && active!!.peerId != null) {
+                        TextButton(onClick = { beginCall(false) }) { Text("☎", color = Accent, fontSize = 20.sp) }
+                        TextButton(onClick = { beginCall(true) }) { Text("▣", color = Accent, fontSize = 20.sp) }
+                    }
                     TextButton(onClick = { scope.launch { runCatching { loadMessages(active!!) } } }) { Text("↻", color = Accent, fontSize = 20.sp) }
                 }
                 LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -344,7 +348,49 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                 error?.let { Text(it, color = Color(0xFFFF7777), modifier = Modifier.padding(8.dp)) }
             }
         }
+        if (call != null) CallOverlay(call!!, callEngine, onAccept = { acceptCall() }, onEnd = { finishCall() })
     }
+}
+
+@Composable
+private fun CallOverlay(call: DtrCall, engine: DtrCallEngine?, onAccept: () -> Unit, onEnd: () -> Unit) {
+    Surface(Modifier.fillMaxSize(), color = Color(0xF20A0910)) {
+        Column(Modifier.fillMaxSize().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Text(if (call.video) "Видеозвонок" else "Голосовой звонок", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            Text(when(call.status) { "incoming" -> "Входящий вызов"; "calling" -> "Вызов…"; "active" -> "На связи"; "failed" -> "Не удалось соединиться"; else -> "Соединение…" }, color = Muted)
+            Spacer(Modifier.height(20.dp))
+            if (call.video && engine != null) {
+                if (engine.remoteVideoTrack != null) CallVideo(engine.remoteVideoTrack, engine.eglContext, Modifier.fillMaxWidth().weight(1f), false)
+                else Box(Modifier.fillMaxWidth().weight(1f).background(Panel, RoundedCornerShape(22.dp)), contentAlignment = Alignment.Center) { Text(call.peerName, color = Color.White, fontSize = 24.sp) }
+                if (engine.localVideoTrack != null) CallVideo(engine.localVideoTrack, engine.eglContext, Modifier.width(112.dp).height(156.dp), true)
+            } else {
+                Box(Modifier.size(132.dp).background(Accent.copy(alpha = .2f), CircleShape), contentAlignment = Alignment.Center) { Text(call.peerName.take(1).uppercase(), color = Accent, fontSize = 48.sp, fontWeight = FontWeight.Bold) }
+                Spacer(Modifier.height(18.dp)); Text(call.peerName, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.height(28.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (call.incoming) Button(onClick = onAccept, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF248A55))) { Text("Принять") }
+                else {
+                    Button(onClick = { engine?.setMicEnabled(!(engine?.micEnabled ?: true)) }, colors = ButtonDefaults.buttonColors(containerColor = Panel)) { Text(if (engine?.micEnabled == false) "Вкл. микрофон" else "Микрофон") }
+                    if (call.video) {
+                        Button(onClick = { engine?.setCameraEnabled(!(engine?.cameraEnabled ?: true)) }, colors = ButtonDefaults.buttonColors(containerColor = Panel)) { Text("Камера") }
+                        Button(onClick = { engine?.switchCamera() }, colors = ButtonDefaults.buttonColors(containerColor = Panel)) { Text("↻") }
+                    }
+                }
+                Button(onClick = onEnd, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB83245))) { Text(if (call.incoming) "Отклонить" else "Завершить") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CallVideo(track: org.webrtc.VideoTrack?, egl: org.webrtc.EglBase.Context, modifier: Modifier, mirror: Boolean) {
+    val context = LocalContext.current
+    val renderer = remember { SurfaceViewRenderer(context).apply { init(egl, null); setEnableHardwareScaler(true); setMirror(mirror) } }
+    DisposableEffect(renderer) { onDispose { renderer.release() } }
+    DisposableEffect(track, renderer) { track?.addSink(renderer); onDispose { track?.removeSink(renderer) } }
+    AndroidView(factory = { renderer }, modifier = modifier)
 }
 
 @Composable
