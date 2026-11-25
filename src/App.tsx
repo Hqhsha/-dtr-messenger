@@ -393,7 +393,7 @@ export default function App() {
 
   const activeTitle=active?.type!=="direct"?(active?.title||(active?.type==="channel"?"Канал":"Групповой чат")):(active?.user?.displayName||"Чат");
   const activeSubtitle=active?.type==="channel"?"Канал · "+String(active.members?.length||0)+" подписчиков":active?.type==="group"?(String(active.members?.length||0)+" участников"):(active?.user?presenceText(active.user):"");
-  return <main className={"shell"+(compact?" compact-mode":"")+(theme==="light"?" theme-light":"")+(glass?" glass-enabled":" glass-disabled")+(animations?"":" no-animations")+(squareAvatars?" square-avatars":"")} style={{"--dtr-accent":accent,"--dtr-wallpaper":wallpaper,"--dtr-message-scale":messageScale/100,"--dtr-bubble-round":bubbleRound+"px"} as React.CSSProperties}>
+  return <main className={"shell"+(compact?" compact-mode":"")+(theme==="light"?" theme-light":"")+(glass?" glass-enabled":" glass-disabled")+(animations?"":" no-animations")+(squareAvatars?" square-avatars":"")+(showMessageTime?"":" time-hidden")} style={{"--dtr-accent":accent,"--dtr-wallpaper":wallpaper,"--dtr-message-scale":messageScale/100,"--dtr-bubble-round":bubbleRound+"px"} as React.CSSProperties}>
     <DtrUpdateNotice />
     <aside className={"sidebar"+(active?" mobile-hidden":"")}>
       <header className="side-head"><button className="brand-mark small secret-logo" aria-label="DTR" title="DTR" onClick={handleSecretLogoClick}>д</button><strong onClick={handleBrandWhisper} title="DTR">дтр</strong><button className="icon-btn" onClick={()=>{handleSettingsExplorer();setPage("settings");}} title="Настройки">⚙</button></header>
