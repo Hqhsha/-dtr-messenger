@@ -10,7 +10,7 @@ import { Server } from "socket.io";
 import path from "node:path";
 import fs from "node:fs";
 import webpush from "web-push";
-import { randomBytes } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 
 const app = express();
 const httpServer = createServer(app);
@@ -27,7 +27,7 @@ const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "https://dtr-messenger-z1ee.onrender.com";
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) webpush.setVapidDetails(VAPID_SUBJECT,VAPID_PUBLIC_KEY,VAPID_PRIVATE_KEY);
-const schemaReady = pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_data BYTEA, ADD COLUMN IF NOT EXISTS avatar_mime TEXT, ADD COLUMN IF NOT EXISTS age SMALLINT, ADD COLUMN IF NOT EXISTS age_public BOOLEAN NOT NULL DEFAULT FALSE; ALTER TABLE chats ADD COLUMN IF NOT EXISTS chat_type TEXT NOT NULL DEFAULT 'direct'; ALTER TABLE chats DROP CONSTRAINT IF EXISTS chats_chat_type_check; ALTER TABLE chats ADD CONSTRAINT chats_chat_type_check CHECK (chat_type IN ('direct','group','channel')); ALTER TABLE chats ADD COLUMN IF NOT EXISTS title VARCHAR(60), ADD COLUMN IF NOT EXISTS description VARCHAR(500) NOT NULL DEFAULT '', ADD COLUMN IF NOT EXISTS creator_id BIGINT REFERENCES users(id) ON DELETE SET NULL, ADD COLUMN IF NOT EXISTS invite_code TEXT UNIQUE, ADD COLUMN IF NOT EXISTS avatar_data BYTEA, ADD COLUMN IF NOT EXISTS avatar_mime TEXT; CREATE TABLE IF NOT EXISTS push_subscriptions (id BIGSERIAL PRIMARY KEY,user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,endpoint TEXT NOT NULL UNIQUE,subscription JSONB NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()); CREATE INDEX IF NOT EXISTS push_subscriptions_user_id_idx ON push_subscriptions(user_id); ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY; REVOKE ALL ON TABLE push_subscriptions FROM anon, authenticated");
+const schemaReady = pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_data BYTEA, ADD COLUMN IF NOT EXISTS avatar_mime TEXT, ADD COLUMN IF NOT EXISTS age SMALLINT, ADD COLUMN IF NOT EXISTS age_public BOOLEAN NOT NULL DEFAULT FALSE; ALTER TABLE chats ADD COLUMN IF NOT EXISTS chat_type TEXT NOT NULL DEFAULT 'direct'; CREATE TABLE IF NOT EXISTS owner_recovery_lock (id SMALLINT PRIMARY KEY CHECK(id=1), used_at TIMESTAMPTZ NOT NULL DEFAULT NOW()); ALTER TABLE chats DROP CONSTRAINT IF EXISTS chats_chat_type_check; ALTER TABLE chats ADD CONSTRAINT chats_chat_type_check CHECK (chat_type IN ('direct','group','channel')); ALTER TABLE chats ADD COLUMN IF NOT EXISTS title VARCHAR(60), ADD COLUMN IF NOT EXISTS description VARCHAR(500) NOT NULL DEFAULT '', ADD COLUMN IF NOT EXISTS creator_id BIGINT REFERENCES users(id) ON DELETE SET NULL, ADD COLUMN IF NOT EXISTS invite_code TEXT UNIQUE, ADD COLUMN IF NOT EXISTS avatar_data BYTEA, ADD COLUMN IF NOT EXISTS avatar_mime TEXT; CREATE TABLE IF NOT EXISTS push_subscriptions (id BIGSERIAL PRIMARY KEY,user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,endpoint TEXT NOT NULL UNIQUE,subscription JSONB NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()); CREATE INDEX IF NOT EXISTS push_subscriptions_user_id_idx ON push_subscriptions(user_id); ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY; REVOKE ALL ON TABLE push_subscriptions FROM anon, authenticated");
 
 const featureSchemaReady = schemaReady.then(()=>pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'member'; ALTER TABLE users ADD COLUMN IF NOT EXISTS status_emoji TEXT; ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ; ALTER TABLE users ADD COLUMN IF NOT EXISTS theme TEXT NOT NULL DEFAULT 'dark'; ALTER TABLE user_stories ADD COLUMN IF NOT EXISTS media_data BYTEA, ADD COLUMN IF NOT EXISTS media_mime TEXT, ADD COLUMN IF NOT EXISTS media_name TEXT; CREATE TABLE IF NOT EXISTS user_notes (id BIGSERIAL PRIMARY KEY,user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,title VARCHAR(100) NOT NULL DEFAULT '',body VARCHAR(5000) NOT NULL DEFAULT '',updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()); CREATE INDEX IF NOT EXISTS user_notes_user_updated_idx ON user_notes(user_id,updated_at DESC); ALTER TABLE user_notes ENABLE ROW LEVEL SECURITY; REVOKE ALL ON TABLE user_notes FROM anon,authenticated; CREATE TABLE IF NOT EXISTS support_tickets (id BIGSERIAL PRIMARY KEY,user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,subject VARCHAR(120) NOT NULL,category TEXT NOT NULL DEFAULT 'question' CHECK(category IN ('question','suggestion','problem')),status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','in_progress','closed')),created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()); CREATE INDEX IF NOT EXISTS support_tickets_updated_idx ON support_tickets(updated_at DESC); ALTER TABLE support_tickets ENABLE ROW LEVEL SECURITY; REVOKE ALL ON TABLE support_tickets FROM anon,authenticated; CREATE TABLE IF NOT EXISTS support_messages (id BIGSERIAL PRIMARY KEY,ticket_id BIGINT NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE,sender_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,body VARCHAR(4000) NOT NULL CHECK(char_length(body) BETWEEN 1 AND 4000),created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()); CREATE INDEX IF NOT EXISTS support_messages_ticket_idx ON support_messages(ticket_id,created_at); ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ; ALTER TABLE messages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ; ALTER TABLE support_messages ENABLE ROW LEVEL SECURITY; REVOKE ALL ON TABLE support_messages FROM anon,authenticated; CREATE TABLE IF NOT EXISTS chat_pins (chat_id BIGINT PRIMARY KEY REFERENCES chats(id) ON DELETE CASCADE,message_id BIGINT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,pinned_by BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,pinned_at TIMESTAMPTZ NOT NULL DEFAULT NOW()); ALTER TABLE chat_pins ENABLE ROW LEVEL SECURITY; REVOKE ALL ON TABLE chat_pins FROM anon,authenticated; CREATE TABLE IF NOT EXISTS message_reports (id BIGSERIAL PRIMARY KEY,message_id BIGINT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,reporter_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,reason VARCHAR(500) NOT NULL DEFAULT '',created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),UNIQUE(message_id,reporter_id)); CREATE INDEX IF NOT EXISTS message_reports_created_idx ON message_reports(created_at DESC); ALTER TABLE message_reports ENABLE ROW LEVEL SECURITY; REVOKE ALL ON TABLE message_reports FROM anon,authenticated"));
 
@@ -108,6 +108,33 @@ app.post("/api/auth/login", async (req, res) => {
   const u = q.rows[0];
   if (!u || !(await bcrypt.compare(String(req.body.password || ""), u.password_hash))) return res.status(401).json({ error: "Неверный логин или пароль" });
   const user = publicUser(u, true); res.json({ token: signToken(user.id), user });
+});
+app.post("/api/auth/owner-recovery", async (req, res) => {
+  const configuredKey = process.env.OWNER_RECOVERY_KEY || "";
+  const suppliedKey = String(req.body.recoveryKey || "");
+  const password = String(req.body.newPassword || "");
+  if (!configuredKey || configuredKey.length < 32) return res.status(503).json({ error: "Восстановление владельца не настроено" });
+  const expected = Buffer.from(configuredKey);
+  const supplied = Buffer.from(suppliedKey);
+  if (expected.length !== supplied.length || !timingSafeEqual(expected, supplied)) return res.status(403).json({ error: "Неверный ключ восстановления" });
+  if (password.length < 12 || password.length > 72) return res.status(400).json({ error: "Новый пароль должен содержать от 12 до 72 символов" });
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(73194261)");
+    const used = await client.query("SELECT id FROM owner_recovery_lock WHERE id=1");
+    if (used.rowCount) { await client.query("ROLLBACK"); return res.status(410).json({ error: "Ключ восстановления уже использован" }); }
+    const hash = await bcrypt.hash(password, 12);
+    const changed = await client.query("UPDATE users SET password_hash=$1 WHERE LOWER(username)=LOWER('lolik') AND role='owner' RETURNING id,username,display_name,role", [hash]);
+    if (!changed.rowCount) { await client.query("ROLLBACK"); return res.status(404).json({ error: "Аккаунт владельца не найден" }); }
+    await client.query("INSERT INTO owner_recovery_lock(id) VALUES(1)");
+    await client.query("COMMIT");
+    res.json({ ok: true, user: changed.rows[0], message: "Пароль владельца обновлён. Ключ восстановления использован." });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("Owner recovery failed:", error);
+    res.status(500).json({ error: "Не удалось восстановить доступ" });
+  } finally { client.release(); }
 });
 app.get("/api/me", auth, async (req: AuthedRequest, res) => {
   const q = await pool.query("SELECT * FROM users WHERE id=$1", [req.userId]);
