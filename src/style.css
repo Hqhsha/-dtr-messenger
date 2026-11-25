@@ -460,3 +460,22 @@ body{
 @media(prefers-reduced-transparency:reduce){
   .shell,.side-head,.conversation-head,.composer,.bubble,.auth-card,.welcome-card{backdrop-filter:none;-webkit-backdrop-filter:none}
 }
+
+
+/* Hidden DTR easter eggs */
+.secret-logo{border:0;cursor:pointer;color:#fff;transition:transform .22s,filter .22s}
+.secret-logo:hover{transform:rotate(-9deg) scale(1.08);filter:brightness(1.2)}
+.secret-version{cursor:pointer;user-select:none;transition:color .2s,text-shadow .2s}
+.secret-version:hover{color:#b9d8ff;text-shadow:0 0 14px rgba(103,184,237,.5)}
+.easter-egg-toast{
+  position:fixed;z-index:9999;left:50%;bottom:26px;transform:translateX(-50%);
+  width:max-content;max-width:calc(100vw - 28px);padding:13px 18px;
+  border:1px solid rgba(158,203,238,.28);border-radius:16px;
+  color:#f4f8ff;text-align:center;font-size:13px;font-weight:600;line-height:1.45;
+  background:linear-gradient(115deg,rgba(25,104,147,.94),rgba(91,65,148,.95));
+  box-shadow:0 12px 38px rgba(0,0,0,.38),inset 0 1px rgba(255,255,255,.16);
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  animation:easter-pop .28s cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes easter-pop{from{opacity:0;transform:translate(-50%,10px) scale(.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
+@media(max-width:700px){.easter-egg-toast{bottom:max(18px,env(safe-area-inset-bottom));font-size:12px;padding:11px 14px}}
