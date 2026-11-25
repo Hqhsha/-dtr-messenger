@@ -223,7 +223,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
             isRecordingVoice = true
             error = null
         } catch (e: Exception) {
-            voiceRecorder?.runCatching { reset(); release() }
+            runCatching { voiceRecorder?.reset(); voiceRecorder?.release() }
             voiceRecorder = null
             isRecordingVoice = false
             error = e.message ?: "Не удалось начать запись"
