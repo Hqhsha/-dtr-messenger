@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.AudioManager
 import org.json.JSONObject
 import org.webrtc.*
+import org.webrtc.audio.JavaAudioDeviceModule
 import io.socket.client.Socket
 
 class DtrCallEngine(
@@ -136,11 +137,15 @@ class DtrCallEngine(
         peer?.createOffer(object : SimpleSdpObserver() {
             override fun onCreateSuccess(description: SessionDescription?) {
                 if (description == null) { onStatus("failed"); return }
-                peer?.setLocalDescription(SimpleSdpObserver(), description)
-                socket.emit("call:offer", JSONObject()
-                    .put("to", peerId).put("chatId", chatId).put("video", video)
-                    .put("offer", JSONObject().put("type", "offer").put("sdp", description.description)))
-                onStatus("calling")
+                peer?.setLocalDescription(object : SimpleSdpObserver() {
+                    override fun onSetSuccess() {
+                        socket.emit("call:offer", JSONObject()
+                            .put("to", peerId).put("chatId", chatId).put("video", video)
+                            .put("offer", JSONObject().put("type", "offer").put("sdp", description.description)))
+                        onStatus("calling")
+                    }
+                    override fun onSetFailure(error: String?) { onStatus("failed") }
+                }, description)
             }
             override fun onCreateFailure(error: String?) { onStatus("failed") }
         }, MediaConstraints())
