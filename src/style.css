@@ -204,7 +204,7 @@ button:active{transform:scale(.975)}
 .conversation-head>.icon-btn,.conversation-head>.call-action{flex:0 0 auto;min-width:34px;width:34px;height:38px;padding:0;display:grid;place-items:center}
 .composer-tools{position:relative;flex:none}
 .composer-extra-tools{position:absolute;left:0;bottom:calc(100% + 8px);z-index:40;display:flex;gap:6px;padding:8px;background:#171320;border:1px solid #38294a;border-radius:14px;box-shadow:0 8px 28px #0008}
-.composer-extra-tools .tool-btn{width:auto;min-width:58px;padding:0 9px;font-size:12px;white-space:nowrap}
+.composer-extra-tools .tool-btn{width:38px;min-width:38px;height:38px;padding:0;font-size:20px;white-space:nowrap;border-radius:50%;display:grid;place-items:center}
 @media(max-width:700px){
  .conversation-head{gap:5px;padding:8px 7px}
  .chat-header-profile{gap:6px}
@@ -283,7 +283,7 @@ button{transition:background-color .12s ease,color .12s ease}
 .message-menu-trigger{pointer-events:auto;width:28px;height:26px;display:grid;place-items:center;border-radius:9px;background:#263746eF;border:1px solid #ffffff14;color:#d8e5ef;font-size:23px;line-height:1;opacity:0;transition:opacity .12s,background .12s}
 .bubble:hover .message-menu-trigger,.message-actions.open .message-menu-trigger,.message-actions:focus-within .message-menu-trigger{opacity:1}
 .message-menu-trigger:hover{background:#36516a;color:#fff}
-.message-action-items{position:absolute;right:0;top:calc(100% + 5px);display:none;flex-direction:column;gap:2px;min-width:172px;max-width:min(220px,calc(100vw - 32px));padding:5px;border:1px solid #334656;border-radius:12px;background:#182633;box-shadow:0 10px 28px #0008;pointer-events:auto}
+.message-action-items{position:fixed;z-index:9999;display:none;flex-direction:column;gap:2px;width:200px;min-width:0;max-width:calc(100vw - 16px);max-height:min(340px,calc(100dvh - 16px));overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding:5px;border:1px solid #526b80;border-radius:12px;background:rgba(18,31,45,.98);box-shadow:0 12px 34px #000b;pointer-events:auto}
 .message-actions.open .message-action-items{display:flex}
 .message-action-items button{width:100%;display:flex;align-items:center;gap:10px;text-align:left;padding:9px 11px;border:0;border-radius:8px;background:transparent;color:#dce6ef;font-size:12px;white-space:nowrap}
 .message-action-items button:hover{background:#2b3d4d;color:#fff}
@@ -291,7 +291,7 @@ button{transition:background-color .12s ease,color .12s ease}
 .bubble .message-meta{position:relative;z-index:1}
 @media(max-width:700px){
  .message-menu-trigger{opacity:1;width:26px;height:25px;background:#20313fe8}
- .message-action-items{min-width:164px;top:calc(100% + 4px)}
+ .message-action-items{width:min(200px,calc(100vw - 16px));max-height:calc(100dvh - 16px)}
  .message-action-items button{min-height:40px;font-size:13px}
 }
 
@@ -496,3 +496,9 @@ body{
 .theme-light .profile-achievements>header,.theme-light .achievement-card b{color:#24384c}
 .theme-light .achievement-card{background:rgba(255,255,255,.6);border-color:#dbe3ed}
 .theme-light .achievement-card small,.theme-light .achievement-empty{color:#66788c}
+
+
+/* Mobile fixes: icon-only attachment picker and viewport-safe message menu */
+.bubble{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.message-action-items{position:fixed!important;z-index:99999!important}
+.composer-extra-tools .tool-btn{width:38px!important;min-width:38px!important;padding:0!important}
