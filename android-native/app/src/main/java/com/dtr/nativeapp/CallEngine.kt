@@ -106,9 +106,11 @@ class DtrCallEngine(
     }
 
     private fun createLocalTracks() {
-        audioSource = factory.createAudioSource(MediaConstraints())
-        audioTrack = factory.createAudioTrack("DTR_AUDIO", audioSource)
-        peer?.addTrack(audioTrack, listOf("DTR_STREAM"))
+        val audioSrc = factory.createAudioSource(MediaConstraints())
+        audioSource = audioSrc
+        val audio = factory.createAudioTrack("DTR_AUDIO", audioSrc)
+        audioTrack = audio
+        peer?.addTrack(audio, listOf("DTR_STREAM"))
         if (!video) return
         val enumerator = Camera2Enumerator(context)
         val cameraName = enumerator.deviceNames.firstOrNull { enumerator.isFrontFacing(it) }
@@ -116,12 +118,16 @@ class DtrCallEngine(
             ?: throw IllegalStateException("Камера не найдена")
         capturer = enumerator.createCapturer(cameraName, null)
             ?: throw IllegalStateException("Не удалось открыть камеру")
-        videoSource = factory.createVideoSource(false)
-        textureHelper = SurfaceTextureHelper.create("DTR-Camera", egl.eglBaseContext)
-        capturer?.initialize(textureHelper, context, videoSource?.capturerObserver)
-        capturer?.startCapture(1280, 720, 30)
-        localVideoTrack = factory.createVideoTrack("DTR_VIDEO", videoSource)
-        peer?.addTrack(localVideoTrack, listOf("DTR_STREAM"))
+        val source = factory.createVideoSource(false)
+        videoSource = source
+        val helper = SurfaceTextureHelper.create("DTR-Camera", egl.eglBaseContext)
+        textureHelper = helper
+        val activeCapturer = capturer ?: throw IllegalStateException("Камера не инициализирована")
+        activeCapturer.initialize(helper, context, source.capturerObserver)
+        activeCapturer.startCapture(1280, 720, 30)
+        val track = factory.createVideoTrack("DTR_VIDEO", source)
+        localVideoTrack = track
+        peer?.addTrack(track, listOf("DTR_STREAM"))
     }
 
     fun startOutgoing() {
