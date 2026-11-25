@@ -3,7 +3,7 @@ import { io, Socket } from "socket.io-client";
 
 type User = { id:string; username:string; displayName:string; bio:string; avatarUrl:string|null; age:number|null; agePublic:boolean; role?:string; statusEmoji?:string|null; online?:boolean; lastSeenAt?:string|null; theme?:"dark"|"light"; chatRole?:string };
 type Chat = { chatId:string; type:"direct"|"group"|"channel"; title:string|null; user:User|null; members:User[]; lastMessage:string|null; description?:string; inviteCode?:string; creatorId?:string; avatarUrl?:string|null };
-type Message = { id:string; chatId:string; senderId:string; body:string; createdAt:string; editedAt?:string|null; peerReadAt?:string|null; messageType?:"text"|"image"|"audio"|"video"; mediaUrl?:string|null; username?:string; displayName?:string; reactions?:{emoji:string;count:number;mine:boolean}[] };
+type Message = { id:string; chatId:string; senderId:string; body:string; createdAt:string; editedAt?:string|null; peerReadAt?:string|null; peerReadCount?:number; messageType?:"text"|"image"|"audio"|"video"; mediaUrl?:string|null; username?:string; displayName?:string; reactions?:{emoji:string;count:number;mine:boolean}[] };
 type Page = "chat"|"feed"|"stories"|"updates"|"settings"|"notes"|"support"|"admin";
 type CallSession = {chatId:string;peerId:string;peerName:string;peerAvatar:string|null;video:boolean;status:"incoming"|"calling"|"connecting"|"active";offer?:RTCSessionDescriptionInit};
 const api = async (path:string, token:string|null, options:RequestInit={}) => {
@@ -19,6 +19,7 @@ const emptyUser:User = {id:"",username:"",displayName:"",bio:"",avatarUrl:null,a
 const emojiList=["😀","😃","😄","😁","😆","😅","🤣","😂","🙂","🙃","🫠","😉","😊","😇","🥰","😍","🤩","😘","😗","☺️","😚","😙","🥲","😋","😛","😜","🤪","😝","🤑","🤗","🤭","🫢","🫣","🤫","🤔","🫡","🤐","🤨","😐","😑","😶","🫥","😏","😒","🙄","😬","😮‍💨","🤥","😌","😔","😪","🤤","😴","😷","🤒","🤕","🤢","🤮","🤧","🥵","🥶","🥴","😵","🤯","🥳","🥸","😎","🤓","🧐","😭","😢","🥺","😤","😠","😡","🤬","😳","🥹","😱","😨","😰","😥","😓","🫶","❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","❤️‍🔥","❤️‍🩹","💖","💗","💓","💞","💕","💘","💝","💟","❣️","💯","💢","💥","💫","💦","💨","🕳️","💬","👋","🤚","🖐️","✋","🖖","👌","🤌","🤏","✌️","🤞","🫰","🤟","🤘","🤙","👈","👉","👆","👇","☝️","👍","👎","✊","👊","🤛","🤜","👏","🙌","👐","🤲","🙏","💅","💪","🦾","🫀","🧠","👀","👁️","👄","🫦","👶","🧑","👨","👩","🧑‍🎤","🧑‍💻","🧑‍🚀","🧑‍🎨","🧑‍🍳","🧑‍🎓","🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐸","🐵","🐧","🐦","🦄","🐝","🦋","🐢","🐬","🦈","🐙","🦖","🌵","🌲","🌻","🌹","🌈","☀️","🌤️","🌧️","⛈️","❄️","🔥","⭐","🌟","✨","⚡","☄️","🌙","☕","🍵","🍕","🍔","🍟","🌭","🍿","🍩","🍪","🎂","🍰","🍫","🍓","🍒","🍉","🍍","🥑","🍣","🍜","🥤","⚽","🏀","🏈","⚾","🎾","🏐","🎮","🕹️","🎯","🎲","🎧","🎤","🎬","🎨","🎹","🎸","🚗","🚕","🚌","🚀","✈️","🚲","🏆","🥇","🎁","🎉","🎊","🎈","🪄","💎","👑","🔔","📌","📎","💡","📷","📱","💻","🛠️","🔒","🔑","🫧","🪩","🧸","🪻","🫂","🤝","💐","🌷","🧋","🧃","🛸","🧿","🪐","☁️","🍀","♻️","✅","❌","⚠️","❓","❗","➕","➖","➡️","⬆️","⬇️","🔝","🔜","🔗","🔆","🔅","🔊","🔇","🔋","🪫"];
 
 export default function App() {
+  const chatListRequestSequence = useRef(0);
   const [booting,setBooting]=useState(true);
   const [accent,setAccent]=useState(localStorage.getItem("dtr_accent")||"#a855f7");
   const [wallpaper,setWallpaper]=useState(localStorage.getItem("dtr_wallpaper")||"transparent");
