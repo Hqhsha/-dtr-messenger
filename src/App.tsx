@@ -24,7 +24,7 @@ export default function App() {
   const chatListRequestSequence = useRef(0);
   const [booting,setBooting]=useState(true);
   const [accent,setAccent]=useState(localStorage.getItem("dtr_accent")||"#a855f7");
-  const [wallpaper,setWallpaper]=useState(localStorage.getItem("dtr_wallpaper")||"transparent");
+  const [wallpaper,setWallpaper]=useState(localStorage.getItem("dtr_wallpaper")||"linear-gradient(135deg,#f4ecfc,#faf8fe)");
   const [customEmoji,setCustomEmoji]=useState<string[]>(()=>{try{return JSON.parse(localStorage.getItem("dtr_custom_emoji")||"[]")}catch{return []}});
   const [stickers,setStickers]=useState<any[]>([]);
   useEffect(()=>{const timer=window.setTimeout(()=>setBooting(false),2600);return()=>window.clearTimeout(timer);},[]);
@@ -179,6 +179,7 @@ export default function App() {
   const [animations,setAnimations]=useState(localStorage.getItem("dtr_animations")!=="false");
   const [squareAvatars,setSquareAvatars]=useState(localStorage.getItem("dtr_square_avatars")==="true");
 
+  useEffect(()=>{if(themeMode!=="system")return;const media=window.matchMedia("(prefers-color-scheme: dark)");const apply=()=>{void changeTheme(media.matches?"dark":"light","system")};media.addEventListener("change",apply);return()=>media.removeEventListener("change",apply);},[themeMode]);
   const [notes,setNotes] = useState<any[]>([]);
   const [noteTitle,setNoteTitle] = useState("");
   const [noteBody,setNoteBody] = useState("");
@@ -330,7 +331,7 @@ export default function App() {
 
   async function addGroupMember(user:User){if(!active)return;try{await api("/chats/"+active.chatId+"/members",token,{method:"POST",body:JSON.stringify({userId:user.id})});await refreshChats();const c=await api("/chats",token);const updated=c.chats.find((x:Chat)=>x.chatId===active.chatId);if(updated)setActive(updated);setGroupAddSearch("");setGroupAddResults([]);}catch(e:any){setError(e.message)}}
 
-  async function changeTheme(next:"dark"|"light"){setTheme(next);localStorage.setItem("dtr_theme",next);try{const d=await api("/profile/preferences",token,{method:"PATCH",body:JSON.stringify({theme:next})});setMe(d.user);}catch(e:any){setError(e.message);}}
+  async function changeTheme(next:"dark"|"light",mode:"light"|"dark"|"system"=next){setTheme(next);setThemeMode(mode);localStorage.setItem("dtr_theme",next);localStorage.setItem("dtr_theme_mode",mode);try{const d=await api("/profile/preferences",token,{method:"PATCH",body:JSON.stringify({theme:next})});setMe(d.user);}catch(e:any){setError(e.message);}}
   async function setStatusEmoji(statusEmoji:string|null){try{const d=await api("/profile/status",token,{method:"PATCH",body:JSON.stringify({statusEmoji})});setMe(d.user);}catch(e:any){setError(e.message);}}
   async function loadFeed(){try{const d=await api("/feed",token);setFeedPosts(d.posts||[]);}catch(e:any){setError(e.message)}}
   async function loadStickers(){try{const d=await api("/stickers",token);setStickers(d.stickers||[]);}catch(e:any){setError(e.message)}}
@@ -413,7 +414,7 @@ export default function App() {
 :page==="settings"?<><header className="conversation-head"><button className="back-btn" onClick={()=>setPage("chat")}>←</button><div><b>Настройки</b><small>Персонализация и безопасность</small></div></header><div className="messages settings-content">
 <section className="settings-card"><div className="settings-profile"><Avatar user={me}/><div><b>{me.displayName}</b><small>@{me.username} · {roleLabel(me.role)}</small></div></div><button className="primary-action" onClick={openEditProfile}>Изменить профиль <span>›</span></button><button className="settings-row" onClick={()=>viewProfile(me)}>Посмотреть мой профиль <span>›</span></button></section>
 <section className="settings-card"><h3>Оформление</h3><div className="theme-choice"><button className={theme==="dark"?"theme-option selected":"theme-option"} onClick={()=>changeTheme("dark")}>🌙 Тёмная</button><button className={theme==="light"?"theme-option selected":"theme-option"} onClick={()=>changeTheme("light")}>☀️ Светлая</button></div>
-<div className="theme-choice"><button className={themeMode==="system"?"theme-option selected":"theme-option"} onClick={()=>{const mode="system";setThemeMode(mode);localStorage.setItem("dtr_theme_mode",mode);changeTheme(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");}}>⚙️ Системная</button></div>
+<div className="theme-choice"><button className={themeMode==="system"?"theme-option selected":"theme-option"} onClick={()=>{const mode="system";setThemeMode(mode);localStorage.setItem("dtr_theme_mode",mode);changeTheme(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light","system");}}>⚙️ Системная</button></div>
 <div className="appearance-preview"><div className="preview-head">DTR · Превью оформления</div><div className="preview-bubble">Привет! Так будет выглядеть чат.</div><div className="preview-bubble mine">Красиво и удобно ✨</div></div>
 <div className="appearance-control"><b>Размер текста сообщений · {messageScale}%</b><input type="range" min="85" max="125" step="5" value={messageScale} onChange={e=>{const v=Number(e.target.value);setMessageScale(v);localStorage.setItem("dtr_message_scale",String(v));}}/></div>
 <div className="appearance-control"><b>Скругление пузырей · {bubbleRound}px</b><input type="range" min="8" max="28" step="2" value={bubbleRound} onChange={e=>{const v=Number(e.target.value);setBubbleRound(v);localStorage.setItem("dtr_bubble_round",String(v));}}/></div>
