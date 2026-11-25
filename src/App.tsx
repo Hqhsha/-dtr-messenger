@@ -209,6 +209,25 @@ export default function App() {
   const recorderTimer = useRef<number|null>(null);
   const socket = useMemo<Socket|null>(()=> token ? io({auth:{token}}) : null,[token]);
 
+  // Escape closes the topmost overlay first, matching desktop and mobile expectations.
+  useEffect(()=>{
+    const closeOverlay=(event:KeyboardEvent)=>{
+      if(event.key!=="Escape")return;
+      if(groupInfoOpen)setGroupInfoOpen(false);
+      else if(groupOpen)setGroupOpen(false);
+      else if(editOpen)setEditOpen(false);
+      else if(profileTarget)setProfileTarget(null);
+      else if(forwardTarget)setForwardTarget(null);
+      else if(emojiOpen)setEmojiOpen(false);
+      else if(composerMoreOpen)setComposerMoreOpen(false);
+      else return;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    window.addEventListener("keydown",closeOverlay);
+    return()=>window.removeEventListener("keydown",closeOverlay);
+  },[groupInfoOpen,groupOpen,editOpen,profileTarget,forwardTarget,emojiOpen,composerMoreOpen]);
+
   // Keep the underlying messenger viewport fixed while a modal is open.
   // Telegram's Android WebView can otherwise scroll the page when a modal closes.
   useEffect(()=>{
