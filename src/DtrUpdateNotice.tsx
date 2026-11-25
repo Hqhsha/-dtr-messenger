@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 type ReleaseAsset = { name: string; browser_download_url: string };
 type Release = { tag_name: string; html_url: string; body?: string; assets: ReleaseAsset[] };
 
-const CURRENT_VERSION = "0.7.1";
+const CURRENT_VERSION = "0.7.2";
 const REPOSITORY = "Hqhsha/-dtr-messenger";
 
 export default function DtrUpdateNotice() {
