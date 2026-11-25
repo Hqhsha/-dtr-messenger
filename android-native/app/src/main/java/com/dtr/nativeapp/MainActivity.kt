@@ -444,7 +444,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                         val mine = msg.senderId == me?.id
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start) {
                             Column(
-                                Modifier.widthIn(max = 310.dp).background(if (selectedMessage?.id==msg.id) Accent.copy(alpha=.22f) else if (mine) Color(0xFF3A3943) else Color(0xFF24252C), RoundedCornerShape(18.dp)).clickable { selectedMessage=if(selectedMessage?.id==msg.id)null else msg }.padding(horizontal = 13.dp, vertical = 9.dp)
+                                Modifier.widthIn(max = 320.dp).background(if (selectedMessage?.id==msg.id) Accent.copy(alpha=.22f) else if (mine) Color(0xFF353B4B) else Color(0xFF25272F), RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = if (mine) 18.dp else 5.dp, bottomEnd = if (mine) 5.dp else 18.dp)).clickable { selectedMessage=if(selectedMessage?.id==msg.id)null else msg }.padding(horizontal = 13.dp, vertical = 9.dp)
                             ) {
                                 if (!mine) Text(msg.displayName.ifBlank { "Участник" }, color = Accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                 Text(when(msg.messageType) { "image" -> "▧  Фото\n${msg.body}"; "video" -> "▶  Видео\n${msg.body}"; "audio" -> "♫  Голосовое сообщение\n${msg.body}"; else -> msg.body }, color = Color.White, fontSize = 15.sp)
