@@ -3,6 +3,7 @@ package com.dtr.nativeapp
 import android.os.Bundle
 import android.content.Intent
 import android.net.Uri
+import android.provider.OpenableColumns
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -41,6 +42,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -63,7 +65,7 @@ private val http = OkHttpClient.Builder()
 data class DtrUser(val id: String, val username: String, val displayName: String)
 data class DtrChat(val id: String, val title: String, val subtitle: String, val type: String, val peerId: String? = null)
 data class DtrReaction(val emoji: String, val count: Int, val mine: Boolean)
-data class DtrMessage(val id: String, val senderId: String, val body: String, val displayName: String, val createdAt: String, val reactions: List<DtrReaction> = emptyList(), val editedAt: String? = null)
+data class DtrMessage(val id: String, val senderId: String, val body: String, val displayName: String, val createdAt: String, val reactions: List<DtrReaction> = emptyList(), val editedAt: String? = null, val messageType: String = "text", val mediaUrl: String? = null)
 data class DtrCall(val peerId: String, val chatId: String, val peerName: String, val video: Boolean, val incoming: Boolean, val status: String, val offer: JSONObject? = null)
 
 class MainActivity : ComponentActivity() {
@@ -100,6 +102,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
     var displayName by remember { mutableStateOf("") }
     var register by remember { mutableStateOf(false) }
     var draft by remember { mutableStateOf("") }
+    var pickerMime by remember { mutableStateOf("image/*") }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var socket by remember { mutableStateOf<Socket?>(null) }
@@ -166,6 +169,38 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
             JSONObject(raw.ifBlank { "{}" })
         }
 
+    suspend fun uploadMedia(uri: Uri, mimeType: String) {
+        val chat = active ?: return
+        loading = true
+        error = null
+        try {
+            val result = withContext(Dispatchers.IO) {
+                val mime = context.contentResolver.getType(uri) ?: mimeType
+                val name = context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null } ?: if (mime.startsWith("video/")) "video.mp4" else "photo.jpg"
+                val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: throw IllegalStateException("Не удалось прочитать файл")
+                if (bytes.size > 12 * 1024 * 1024) throw IllegalStateException("Файл больше 12 МБ")
+                val multipart = MultipartBody.Builder().setType(MultipartBody.FORM).addFormDataPart("media", name, bytes.toRequestBody(mime.toMediaType())).build()
+                val req = Request.Builder().url(BASE_URL + "/api/chats/${chat.id}/media").header("Authorization", "Bearer ${token ?: ""}").post(multipart).build()
+                http.newCall(req).execute().use { response ->
+                    val raw = response.body?.string().orEmpty()
+                    if (!response.isSuccessful) throw IllegalStateException(runCatching { JSONObject(raw).optString("error") }.getOrNull()?.takeIf { it.isNotBlank() } ?: "Ошибка отправки: ${response.code}")
+                    JSONObject(raw)
+                }
+            }
+            val m = result.optJSONObject("message")
+            if (m != null) {
+                val item = DtrMessage(m.optString("id"), m.optString("senderId"), m.optString("body"), m.optString("displayName"), m.optString("createdAt"), messageType = m.optString("messageType", if (mimeType.startsWith("video/")) "video" else "image"), mediaUrl = m.optString("mediaUrl").takeIf { it.isNotBlank() && it != "null" })
+                if (messages.none { it.id == item.id }) messages = messages + item
+                loadChats()
+            }
+        } catch (e: Exception) { error = e.message ?: "Не удалось отправить файл" }
+        finally { loading = false }
+    }
+
+    val mediaPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) scope.launch { uploadMedia(uri, pickerMime) }
+    }
+
     suspend fun loadChats() {
         val data = request("/api/chats")
         val array = data.optJSONArray("chats") ?: JSONArray()
@@ -188,7 +223,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
         messages = (0 until array.length()).map { i ->
             val m = array.getJSONObject(i)
             val reactions = m.optJSONArray("reactions")?.let { a -> (0 until a.length()).mapNotNull { k -> a.optJSONObject(k)?.let { DtrReaction(it.optString("emoji"),it.optInt("count"),it.optBoolean("mine")) } } } ?: emptyList()
-            DtrMessage(m.optString("id"), m.optString("senderId"), m.optString("body"), m.optString("displayName"), m.optString("createdAt"), reactions, m.optString("editedAt").takeIf { it.isNotBlank() && it!="null" })
+            DtrMessage(m.optString("id"), m.optString("senderId"), m.optString("body"), m.optString("displayName"), m.optString("createdAt"), reactions, m.optString("editedAt").takeIf { it.isNotBlank() && it!="null" }, m.optString("messageType","text"), m.optString("mediaUrl").takeIf { it.isNotBlank() && it!="null" })
         }
     }
 
@@ -330,7 +365,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                                 Modifier.widthIn(max = 310.dp).background(if (selectedMessage?.id==msg.id) Accent.copy(alpha=.22f) else if (mine) Color(0xFF40336A) else Panel, RoundedCornerShape(17.dp)).clickable { selectedMessage=if(selectedMessage?.id==msg.id)null else msg }.padding(horizontal = 13.dp, vertical = 9.dp)
                             ) {
                                 if (!mine) Text(msg.displayName.ifBlank { "Участник" }, color = Accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                Text(msg.body, color = Color.White, fontSize = 15.sp)
+                                Text(when(msg.messageType) { "image" -> "▧  Фото\\n${msg.body}"; "video" -> "▶  Видео\\n${msg.body}"; "audio" -> "♫  Голосовое сообщение\\n${msg.body}"; else -> msg.body }, color = Color.White, fontSize = 15.sp)
                                 if(msg.editedAt!=null) Text("изменено",color=Muted,fontSize=10.sp)
                                 if(msg.reactions.isNotEmpty()) Text(msg.reactions.joinToString("  ") { it.emoji+" "+it.count },color=Accent,fontSize=12.sp,modifier=Modifier.padding(top=4.dp))
                             }
@@ -348,6 +383,10 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                     }
                 }
                 Row(Modifier.fillMaxWidth().background(Panel).padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (editingMessage == null) {
+                        IconButton(onClick = { pickerMime = "image/*"; mediaPicker.launch(pickerMime) }, enabled = !loading) { Text("＋", color = Accent, fontSize = 24.sp) }
+                        IconButton(onClick = { pickerMime = "video/*"; mediaPicker.launch(pickerMime) }, enabled = !loading) { Text("▣", color = Accent, fontSize = 19.sp) }
+                    }
                     OutlinedTextField(
                         value = draft, onValueChange = { draft = it }, modifier = Modifier.weight(1f),
                         placeholder = { Text(if(editingMessage!=null) "Редактирование…" else "Сообщение…", color = Muted) }, shape = RoundedCornerShape(24.dp),
