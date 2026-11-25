@@ -30,6 +30,7 @@ if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) webpush.setVapidDetails(VAPID_SUBJECT
 const schemaReady = pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_data BYTEA, ADD COLUMN IF NOT EXISTS avatar_mime TEXT, ADD COLUMN IF NOT EXISTS age SMALLINT, ADD COLUMN IF NOT EXISTS age_public BOOLEAN NOT NULL DEFAULT FALSE; ALTER TABLE chats ADD COLUMN IF NOT EXISTS chat_type TEXT NOT NULL DEFAULT 'direct'; CREATE TABLE IF NOT EXISTS owner_recovery_lock (id SMALLINT PRIMARY KEY CHECK(id=1), used_at TIMESTAMPTZ NOT NULL DEFAULT NOW()); ALTER TABLE chats DROP CONSTRAINT IF EXISTS chats_chat_type_check; ALTER TABLE chats ADD CONSTRAINT chats_chat_type_check CHECK (chat_type IN ('direct','group','channel')); ALTER TABLE chats ADD COLUMN IF NOT EXISTS title VARCHAR(60), ADD COLUMN IF NOT EXISTS description VARCHAR(500) NOT NULL DEFAULT '', ADD COLUMN IF NOT EXISTS creator_id BIGINT REFERENCES users(id) ON DELETE SET NULL, ADD COLUMN IF NOT EXISTS invite_code TEXT UNIQUE, ADD COLUMN IF NOT EXISTS avatar_data BYTEA, ADD COLUMN IF NOT EXISTS avatar_mime TEXT; CREATE TABLE IF NOT EXISTS push_subscriptions (id BIGSERIAL PRIMARY KEY,user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,endpoint TEXT NOT NULL UNIQUE,subscription JSONB NOT NULL,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()); CREATE INDEX IF NOT EXISTS push_subscriptions_user_id_idx ON push_subscriptions(user_id); ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY; REVOKE ALL ON TABLE push_subscriptions FROM anon, authenticated");
 
 const featureSchemaReady = schemaReady.then(()=>pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'member'; ALTER TABLE users ADD COLUMN IF NOT EXISTS status_emoji TEXT; ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ; ALTER TABLE users ADD COLUMN IF NOT EXISTS theme TEXT NOT NULL DEFAULT 'dark'; ALTER TABLE user_stories ADD COLUMN IF NOT EXISTS media_data BYTEA, ADD COLUMN IF NOT EXISTS media_mime TEXT, ADD COLUMN IF NOT EXISTS media_name TEXT; CREATE TABLE IF NOT EXISTS user_notes (id BIGSERIAL PRIMARY KEY,user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,title VARCHAR(100) NOT NULL DEFAULT '',body VARCHAR(5000) NOT NULL DEFAULT '',updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()); CREATE INDEX IF NOT EXISTS user_notes_user_updated_idx ON user_notes(user_id,updated_at DESC); ALTER TABLE user_notes ENABLE ROW LEVEL SECURITY; REVOKE ALL ON TABLE user_notes FROM anon,authenticated; CREATE TABLE IF NOT EXISTS support_tickets (id BIGSERIAL PRIMARY KEY,user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,subject VARCHAR(120) NOT NULL,category TEXT NOT NULL DEFAULT 'question' CHECK(category IN ('question','suggestion','problem')),status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','in_progress','closed')),created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()); CREATE INDEX IF NOT EXISTS support_tickets_updated_idx ON support_tickets(updated_at DESC); ALTER TABLE support_tickets ENABLE ROW LEVEL SECURITY; REVOKE ALL ON TABLE support_tickets FROM anon,authenticated; CREATE TABLE IF NOT EXISTS support_messages (id BIGSERIAL PRIMARY KEY,ticket_id BIGINT NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE,sender_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,body VARCHAR(4000) NOT NULL CHECK(char_length(body) BETWEEN 1 AND 4000),created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()); CREATE INDEX IF NOT EXISTS support_messages_ticket_idx ON support_messages(ticket_id,created_at); ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ; ALTER TABLE messages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ; ALTER TABLE support_messages ENABLE ROW LEVEL SECURITY; REVOKE ALL ON TABLE support_messages FROM anon,authenticated; CREATE TABLE IF NOT EXISTS chat_pins (chat_id BIGINT PRIMARY KEY REFERENCES chats(id) ON DELETE CASCADE,message_id BIGINT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,pinned_by BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,pinned_at TIMESTAMPTZ NOT NULL DEFAULT NOW()); ALTER TABLE chat_pins ENABLE ROW LEVEL SECURITY; REVOKE ALL ON TABLE chat_pins FROM anon,authenticated; CREATE TABLE IF NOT EXISTS message_reports (id BIGSERIAL PRIMARY KEY,message_id BIGINT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,reporter_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,reason VARCHAR(500) NOT NULL DEFAULT '',created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),UNIQUE(message_id,reporter_id)); CREATE INDEX IF NOT EXISTS message_reports_created_idx ON message_reports(created_at DESC); ALTER TABLE message_reports ENABLE ROW LEVEL SECURITY; REVOKE ALL ON TABLE message_reports FROM anon,authenticated; CREATE TABLE IF NOT EXISTS chat_drafts (user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,chat_id BIGINT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,body VARCHAR(4000) NOT NULL DEFAULT '',updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(user_id,chat_id)); CREATE INDEX IF NOT EXISTS chat_drafts_updated_idx ON chat_drafts(user_id,updated_at DESC); ALTER TABLE chat_drafts ENABLE ROW LEVEL SECURITY; REVOKE ALL ON TABLE chat_drafts FROM anon,authenticated; CREATE TABLE IF NOT EXISTS user_achievements (user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,achievement_key TEXT NOT NULL,unlocked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(user_id,achievement_key)); ALTER TABLE user_achievements DROP CONSTRAINT IF EXISTS user_achievements_achievement_key_check; ALTER TABLE user_achievements ADD CONSTRAINT user_achievements_achievement_key_check CHECK(achievement_key IN ('logo_hunter','version_seeker','code_master','brand_whisper','story_keeper','settings_explorer','secret_collector')); CREATE INDEX IF NOT EXISTS user_achievements_user_idx ON user_achievements(user_id,unlocked_at); ALTER TABLE user_achievements ENABLE ROW LEVEL SECURITY; REVOKE ALL ON TABLE user_achievements FROM anon,authenticated"));
+const contactsSchemaReady = featureSchemaReady.then(()=>pool.query("CREATE TABLE IF NOT EXISTS friend_requests (id BIGSERIAL PRIMARY KEY,requester_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,recipient_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','accepted','rejected')),created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),CHECK(requester_id<>recipient_id),UNIQUE(requester_id,recipient_id)); CREATE INDEX IF NOT EXISTS friend_requests_recipient_status_idx ON friend_requests(recipient_id,status,created_at DESC); CREATE INDEX IF NOT EXISTS friend_requests_requester_status_idx ON friend_requests(requester_id,status,created_at DESC); CREATE TABLE IF NOT EXISTS user_favorites (user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,target_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(user_id,target_user_id),CHECK(user_id<>target_user_id)); ALTER TABLE friend_requests ENABLE ROW LEVEL SECURITY; ALTER TABLE user_favorites ENABLE ROW LEVEL SECURITY; REVOKE ALL ON TABLE friend_requests,user_favorites FROM anon,authenticated"));
 
 if (!JWT_SECRET || JWT_SECRET.length < 32) throw new Error("JWT_SECRET must contain at least 32 characters");
 app.use(cors({ origin: allowedOrigins }));
@@ -192,6 +193,61 @@ app.get("/api/users/:userId/avatar", async (req, res) => {
   } catch (e) { console.error("GET avatar failed:", e); return res.sendStatus(500); }
 });
 
+app.get("/api/contacts",auth,async(req:AuthedRequest,res)=>{
+  await contactsSchemaReady;
+  const id=String(req.userId);
+  const [friends,incoming,outgoing,favorites]=await Promise.all([
+    pool.query("SELECT u.id,u.username,u.display_name,u.bio,u.avatar_url,u.age,u.age_public,u.role,u.status_emoji,u.last_seen_at FROM friend_requests f JOIN users u ON u.id=CASE WHEN f.requester_id=$1 THEN f.recipient_id ELSE f.requester_id END WHERE (f.requester_id=$1 OR f.recipient_id=$1) AND f.status='accepted' ORDER BY u.display_name",[id]),
+    pool.query("SELECT f.id AS request_id,u.id,u.username,u.display_name,u.bio,u.avatar_url,u.age,u.age_public,u.role,u.status_emoji,u.last_seen_at FROM friend_requests f JOIN users u ON u.id=f.requester_id WHERE f.recipient_id=$1 AND f.status='pending' ORDER BY f.created_at DESC",[id]),
+    pool.query("SELECT f.id AS request_id,u.id,u.username,u.display_name,u.bio,u.avatar_url,u.age,u.age_public,u.role,u.status_emoji,u.last_seen_at FROM friend_requests f JOIN users u ON u.id=f.recipient_id WHERE f.requester_id=$1 AND f.status='pending' ORDER BY f.created_at DESC",[id]),
+    pool.query("SELECT u.id,u.username,u.display_name,u.bio,u.avatar_url,u.age,u.age_public,u.role,u.status_emoji,u.last_seen_at FROM user_favorites f JOIN users u ON u.id=f.target_user_id WHERE f.user_id=$1 ORDER BY f.created_at DESC",[id])
+  ]);
+  res.json({friends:friends.rows.map((u:any)=>publicUser(u)),incoming:incoming.rows.map((u:any)=>({...publicUser(u),requestId:String(u.request_id)})),outgoing:outgoing.rows.map((u:any)=>({...publicUser(u),requestId:String(u.request_id)})),favorites:favorites.rows.map((u:any)=>publicUser(u))});
+});
+app.post("/api/friends/request",auth,async(req:AuthedRequest,res)=>{
+  await contactsSchemaReady;
+  const me=String(req.userId),other=String(req.body.userId||"");
+  if(!/^\d+$/.test(other)||other===me)return res.status(400).json({error:"Некорректный пользователь"});
+  const target=await pool.query("SELECT id FROM users WHERE id=$1",[other]);
+  if(!target.rowCount)return res.status(404).json({error:"Пользователь не найден"});
+  const existing=await pool.query("SELECT id,requester_id,recipient_id,status FROM friend_requests WHERE (requester_id=$1 AND recipient_id=$2) OR (requester_id=$2 AND recipient_id=$1) ORDER BY id DESC LIMIT 1",[me,other]);
+  if(existing.rowCount){
+    const row=existing.rows[0];
+    if(row.status==="accepted")return res.json({status:"accepted",message:"Вы уже друзья"});
+    if(row.status==="pending"&&String(row.requester_id)===me)return res.json({status:"pending",message:"Заявка уже отправлена"});
+    if(row.status==="pending"&&String(row.recipient_id)===me){await pool.query("UPDATE friend_requests SET status='accepted',updated_at=NOW() WHERE id=$1",[row.id]);return res.json({status:"accepted",message:"Заявка принята — теперь вы друзья"});}
+    await pool.query("UPDATE friend_requests SET requester_id=$1,recipient_id=$2,status='pending',created_at=NOW(),updated_at=NOW() WHERE id=$3",[me,other,row.id]);
+  }else await pool.query("INSERT INTO friend_requests(requester_id,recipient_id) VALUES($1,$2)",[me,other]);
+  res.json({status:"pending",message:"Заявка в друзья отправлена"});
+});
+app.patch("/api/friends/requests/:requestId",auth,async(req:AuthedRequest,res)=>{
+  await contactsSchemaReady;
+  const action=String(req.body.action||"");
+  if(!["accept","reject"].includes(action))return res.status(400).json({error:"Неизвестное действие"});
+  const q=await pool.query("UPDATE friend_requests SET status=$1,updated_at=NOW() WHERE id=$2 AND recipient_id=$3 AND status='pending' RETURNING id",[action==="accept"?"accepted":"rejected",String(req.params.requestId),String(req.userId)]);
+  if(!q.rowCount)return res.status(404).json({error:"Заявка не найдена или уже обработана"});
+  res.json({ok:true});
+});
+app.delete("/api/friends/:userId",auth,async(req:AuthedRequest,res)=>{
+  await contactsSchemaReady;
+  const q=await pool.query("DELETE FROM friend_requests WHERE status='accepted' AND ((requester_id=$1 AND recipient_id=$2) OR (requester_id=$2 AND recipient_id=$1)) RETURNING id",[String(req.userId),String(req.params.userId)]);
+  if(!q.rowCount)return res.status(404).json({error:"Пользователь не найден в друзьях"});
+  res.json({ok:true});
+});
+app.post("/api/favorites/:userId",auth,async(req:AuthedRequest,res)=>{
+  await contactsSchemaReady;
+  const other=String(req.params.userId);
+  if(!/^\d+$/.test(other)||other===String(req.userId))return res.status(400).json({error:"Некорректный пользователь"});
+  const exists=await pool.query("SELECT 1 FROM users WHERE id=$1",[other]);
+  if(!exists.rowCount)return res.status(404).json({error:"Пользователь не найден"});
+  await pool.query("INSERT INTO user_favorites(user_id,target_user_id) VALUES($1,$2) ON CONFLICT DO NOTHING",[String(req.userId),other]);
+  res.json({ok:true});
+});
+app.delete("/api/favorites/:userId",auth,async(req:AuthedRequest,res)=>{
+  await contactsSchemaReady;
+  await pool.query("DELETE FROM user_favorites WHERE user_id=$1 AND target_user_id=$2",[String(req.userId),String(req.params.userId)]);
+  res.json({ok:true});
+});
 app.get("/api/users/search", auth, async (req: AuthedRequest, res) => {
   const term = String(req.query.q || "").trim().replace(/[%_]/g, "");
   if (term.length < 2) return res.json({ users: [] });
