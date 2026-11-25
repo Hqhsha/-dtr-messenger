@@ -347,3 +347,116 @@ button{transition:background-color .12s ease,color .12s ease}
 .message-action-items{max-height:min(340px,calc(100dvh - 96px));overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
 .message-actions.open.upward .message-action-items{top:auto;bottom:calc(100% + 5px)}
 @media(max-width:700px){.message-action-items{max-height:calc(100dvh - 88px);min-width:min(190px,calc(100vw - 28px));}}
+
+
+/* DTR glass theme — translucent Telegram-inspired surfaces with a cool gradient */
+:root{
+  --glass-line:rgba(160,196,232,.17);
+  --glass-surface:rgba(18,31,48,.66);
+  --glass-surface-strong:rgba(25,43,64,.82);
+  --glass-blue:#67b8ed;
+  --glass-violet:#a78bfa;
+}
+body{
+  background:
+    radial-gradient(ellipse at 12% 0%,rgba(45,116,180,.24),transparent 42%),
+    radial-gradient(ellipse at 88% 8%,rgba(125,78,190,.22),transparent 38%),
+    radial-gradient(ellipse at 55% 100%,rgba(31,101,135,.16),transparent 45%),
+    linear-gradient(135deg,#080f19 0%,#0c1421 48%,#100e1d 100%);
+  background-attachment:fixed;
+}
+.shell{
+  background:linear-gradient(145deg,rgba(13,25,39,.82),rgba(12,16,29,.88));
+  border-color:var(--glass-line);
+  box-shadow:0 24px 90px rgba(0,0,0,.38),inset 0 1px rgba(255,255,255,.035);
+  backdrop-filter:blur(24px) saturate(145%);
+  -webkit-backdrop-filter:blur(24px) saturate(145%);
+}
+.sidebar,.conversation{background:rgba(10,20,32,.35)}
+.sidebar{border-right-color:var(--glass-line)}
+.side-head,.conversation-head{
+  background:linear-gradient(110deg,rgba(22,43,63,.78),rgba(30,27,53,.7));
+  border-color:var(--glass-line);
+  backdrop-filter:blur(22px) saturate(155%);
+  -webkit-backdrop-filter:blur(22px) saturate(155%);
+}
+.conversation-head{box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.my-profile,.profile-panel,.updates-link,.release-card,.tool-btn,.chat-filter-row .chat-filter{
+  background:linear-gradient(135deg,rgba(38,65,91,.48),rgba(40,32,66,.42));
+  border:1px solid var(--glass-line);
+  box-shadow:inset 0 1px rgba(255,255,255,.055);
+  backdrop-filter:blur(16px) saturate(140%);
+  -webkit-backdrop-filter:blur(16px) saturate(140%);
+}
+.chat-list .chat:hover,.person:hover{background:rgba(78,133,176,.16)}
+.chat-list .chat.active{
+  background:linear-gradient(105deg,rgba(40,119,174,.55),rgba(108,75,166,.48));
+  border:1px solid rgba(132,190,233,.28);
+  box-shadow:inset 0 1px rgba(255,255,255,.09),0 5px 18px rgba(24,91,145,.12);
+}
+.chat-list .chat.pinned:not(.active){background:rgba(42,73,99,.24)}
+.chat-filter-row .chat-filter.active{
+  background:linear-gradient(105deg,rgba(44,139,194,.78),rgba(117,86,190,.72));
+  border-color:rgba(151,205,240,.38);
+  box-shadow:0 5px 18px rgba(56,124,181,.2);
+}
+.bubble{
+  background:linear-gradient(145deg,rgba(34,55,76,.88),rgba(28,39,60,.82));
+  border:1px solid rgba(150,190,222,.17);
+  box-shadow:0 5px 18px rgba(0,0,0,.12),inset 0 1px rgba(255,255,255,.045);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+.bubble.mine{
+  background:linear-gradient(130deg,rgba(44,128,181,.94),rgba(105,73,166,.92));
+  border-color:rgba(173,202,246,.24);
+  box-shadow:0 7px 22px rgba(53,103,166,.2),inset 0 1px rgba(255,255,255,.11);
+}
+.composer{
+  background:linear-gradient(105deg,rgba(17,34,51,.88),rgba(26,25,47,.88));
+  border-top:1px solid var(--glass-line);
+  backdrop-filter:blur(24px) saturate(150%);
+  -webkit-backdrop-filter:blur(24px) saturate(150%);
+}
+.composer input,.auth-card input,.profile-panel input,.profile-panel textarea,.search{
+  background:rgba(8,17,28,.56);
+  border-color:rgba(147,185,219,.2);
+  box-shadow:inset 0 1px 5px rgba(0,0,0,.14);
+}
+.composer input:focus,.auth-card input:focus,.profile-panel input:focus,.profile-panel textarea:focus,.search:focus{
+  border-color:rgba(103,184,237,.72);
+  box-shadow:0 0 0 3px rgba(72,151,207,.13);
+}
+.tool-btn:hover,.updates-link:hover{background:linear-gradient(120deg,rgba(54,119,164,.45),rgba(104,77,160,.4))}
+.auth-card,.welcome-card{
+  background:linear-gradient(145deg,rgba(24,43,63,.83),rgba(25,22,43,.86));
+  border-color:rgba(151,190,228,.24);
+  box-shadow:0 28px 90px rgba(0,0,0,.42),0 0 55px rgba(78,139,197,.1),inset 0 1px rgba(255,255,255,.08);
+  backdrop-filter:blur(26px) saturate(150%);
+  -webkit-backdrop-filter:blur(26px) saturate(150%);
+}
+.auth,.welcome-screen{
+  background:
+    radial-gradient(ellipse at 15% 18%,rgba(50,135,191,.27),transparent 40%),
+    radial-gradient(ellipse at 85% 78%,rgba(139,88,196,.24),transparent 42%),
+    linear-gradient(135deg,#091321,#101426 55%,#151023);
+}
+.auth-card button:not(.link),.profile-panel>button:not(.link),.welcome-enter,.composer .send-btn{
+  background:linear-gradient(110deg,#2699cf 0%,#527fd0 48%,#9164ce 100%);
+  box-shadow:0 8px 24px rgba(66,130,196,.26),inset 0 1px rgba(255,255,255,.18);
+}
+.avatar{background:linear-gradient(135deg,#2999c9,#6554b6)}
+.reply-preview{background:linear-gradient(100deg,rgba(25,61,83,.9),rgba(43,35,70,.9));border-color:var(--glass-line)}
+.reply-preview-bar{background:linear-gradient(180deg,#59c3e8,#a78bfa)}
+.message-action-items,.reaction-popover,.message-menu,.popover,.modal,.profile-modal{
+  backdrop-filter:blur(22px) saturate(155%);
+  -webkit-backdrop-filter:blur(22px) saturate(155%);
+}
+@media(max-width:700px){
+  .shell{background:rgba(10,18,30,.88)}
+  .sidebar{background:rgba(10,20,32,.62)}
+  .conversation-head,.composer{background:rgba(17,31,47,.9)}
+}
+@media(prefers-reduced-transparency:reduce){
+  .shell,.side-head,.conversation-head,.composer,.bubble,.auth-card,.welcome-card{backdrop-filter:none;-webkit-backdrop-filter:none}
+}
