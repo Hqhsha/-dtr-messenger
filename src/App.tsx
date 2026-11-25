@@ -80,6 +80,8 @@ export default function App() {
   const [results,setResults] = useState<User[]>([]);
   const [draft,setDraft] = useState("");
   const [drafts,setDrafts]=useState<Record<string,string>>(()=>{try{return JSON.parse(localStorage.getItem("dtr-chat-drafts")||"{}")}catch{return {}}});
+  const [draftsSyncReady,setDraftsSyncReady]=useState(false);
+  const draftsSnapshotRef=useRef<Record<string,string>>({});
   const [unreadByChat,setUnreadByChat]=useState<Record<string,number>>(()=>{try{return JSON.parse(localStorage.getItem("dtr-chat-unread")||"{}")}catch{return {}}});
   const [mutedChats,setMutedChats]=useState<Record<string,boolean>>(()=>{try{return JSON.parse(localStorage.getItem("dtr-muted-chats")||"{}")}catch{return {}}});
   const [pinnedChats,setPinnedChats]=useState<Record<string,boolean>>(()=>{try{return JSON.parse(localStorage.getItem("dtr-pinned-chats")||"{}")}catch{return {}}});
@@ -180,6 +182,35 @@ export default function App() {
   useEffect(()=>{if(!socket)return;const presence=(d:any)=>{const update=(u:User|null)=>u&&u.id===String(d.userId)?{...u,online:Boolean(d.online),lastSeenAt:d.lastSeenAt||null}:u;setMe(old=>update(old));setProfileTarget(old=>update(old));setChats(old=>old.map(c=>({...c,user:update(c.user),members:c.members.map(m=>update(m) as User)})));};const role=()=>{if(me)api("/me",token).then(d=>setMe(d.user)).catch(()=>{});};socket.on("presence:update",presence);socket.on("user:role-updated",role);socket.on("support:refresh",()=>{if(page==="support")loadTickets();});const supportMessage=(d:any)=>{if(selectedTicket&&String(selectedTicket.id)===String(d.ticketId))setSupportMessages(old=>old.some(m=>String(m.id)===String(d.message.id))?old:[...old,d.message]);};socket.on("support:message",supportMessage);return()=>{socket.off("presence:update",presence);socket.off("user:role-updated",role);socket.off("support:refresh");socket.off("support:message",supportMessage);};},[socket,me,token,page,selectedTicket]);
   useEffect(()=>{ if(!socket)return; const receive=(m:Message)=>{const incomingChatId=String(m.chatId);const incomingId=String(m.id);const messageKey=incomingChatId+":"+incomingId;const currentChatId=String(active?.chatId||"");if(page==="chat"&&currentChatId&&currentChatId===incomingChatId)setMessages(old=>old.some(x=>String(x.id)===incomingId)?old:[...old,m]);else if(String(m.senderId)!==String(me?.id)&&!seenIncomingIdsRef.current.has(messageKey)){seenIncomingIdsRef.current.add(messageKey);if(seenIncomingIdsRef.current.size>2000){const keep=[...seenIncomingIdsRef.current].slice(-1000);seenIncomingIdsRef.current=new Set(keep);}setUnreadByChat(old=>({...old,[incomingChatId]:(old[incomingChatId]||0)+1}));}refreshChats();}; const edited=(d:any)=>{if(String(active?.chatId||"")===String(d.chatId))setMessages(old=>old.map(m=>String(m.id)===String(d.id)?{...m,body:d.body,editedAt:d.editedAt||null}:m));}; const refresh=()=>refreshChats();const typing=(d:any)=>{if(String(active?.chatId||"")!==String(d.chatId)||String(d.userId)===String(me?.id))return;setTypingName(d.typing?String(d.name||"Участник"):"");};socket.on("chat:typing",typing);socket.on("chat:typing-stop",typing);socket.on("chat:message",receive);socket.on("chat:message-edited",edited);socket.on("chat:refresh",refresh);return ()=>{socket.off("chat:typing",typing);socket.off("chat:typing-stop",typing);socket.off("chat:message",receive);socket.off("chat:message-edited",edited);socket.off("chat:refresh",refresh)};},[socket,active,token,me?.id,page]);
   useEffect(()=>{try{localStorage.setItem("dtr-chat-drafts",JSON.stringify(drafts))}catch{}},[drafts]);
+  useEffect(()=>{
+    let live=true;
+    setDraftsSyncReady(false);
+    if(!token){draftsSnapshotRef.current={};return;}
+    api("/drafts",token).then(data=>{
+      if(!live)return;
+      const merged={...drafts,...(data.drafts||{})};
+      draftsSnapshotRef.current={...merged};
+      setDrafts(merged);
+      setDraftsSyncReady(true);
+    }).catch(()=>{if(live)setDraftsSyncReady(true)});
+    return()=>{live=false};
+  },[token]);
+  useEffect(()=>{
+    if(!token||!draftsSyncReady)return;
+    const previous=draftsSnapshotRef.current;
+    const keys=new Set([...Object.keys(previous),...Object.keys(drafts)]);
+    const changed=[...keys].filter(key=>(previous[key]||"")!==(drafts[key]||""));
+    if(!changed.length)return;
+    draftsSnapshotRef.current={...drafts};
+    const timer=window.setTimeout(()=>{
+      changed.forEach(chatId=>{
+        const body=drafts[chatId]||"";
+        const path="/drafts/"+encodeURIComponent(chatId);
+        api(path,token,body.trim()?{method:"PUT",body:JSON.stringify({body})}:{method:"DELETE"}).catch(()=>{});
+      });
+    },450);
+    return()=>window.clearTimeout(timer);
+  },[drafts,token,draftsSyncReady]);
   useEffect(()=>{try{localStorage.setItem("dtr-chat-unread",JSON.stringify(unreadByChat))}catch{}},[unreadByChat]);
   useEffect(()=>{try{localStorage.setItem("dtr-muted-chats",JSON.stringify(mutedChats))}catch{}},[mutedChats]);
   useEffect(()=>{try{localStorage.setItem("dtr-pinned-chats",JSON.stringify(pinnedChats))}catch{}},[pinnedChats]);
