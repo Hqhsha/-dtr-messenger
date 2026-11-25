@@ -106,6 +106,8 @@ class MainActivity : ComponentActivity() {
 private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken: () -> Unit) {
     var token by remember { mutableStateOf(savedToken) }
     var page by remember { mutableStateOf("chats") }
+    var chatSearchVisible by remember { mutableStateOf(false) }
+    var chatSearch by remember { mutableStateOf("") }
     var me by remember { mutableStateOf<DtrUser?>(null) }
     var chats by remember { mutableStateOf<List<DtrChat>>(emptyList()) }
     var active by remember { mutableStateOf<DtrChat?>(null) }
@@ -367,29 +369,43 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
             NativeFeaturePage(page, token ?: "", api = { path, method, body -> request(path, method, body) }, onBack = { page = "chats" }, onNavigate = { page = it })
         } else if (active == null) {
             Column(Modifier.fillMaxSize().padding(horizontal = 18.dp)) {
-                Row(Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                        DtrLogo(46)
-                        Spacer(Modifier.width(12.dp))
+                        DtrLogo(38)
+                        Spacer(Modifier.width(10.dp))
                         Column {
-                            Text("DTR", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-                            Text("ТВОЁ ОБЩЕНИЕ. БЕЗ ГРАНИЦ.", color = Muted, fontSize = 9.sp, letterSpacing = 1.1.sp)
+                            Text("DTR", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                            Text("Мессенджер", color = Muted, fontSize = 12.sp)
                         }
                     }
-                    TextButton(onClick = { token = null; clearToken() }) { Text("Выйти", color = Muted) }
+                    IconButton(onClick = { chatSearchVisible = !chatSearchVisible; if (!chatSearchVisible) chatSearch = "" }) {
+                        Icon(Icons.Filled.Search, contentDescription = "Поиск чатов", tint = Color.White)
+                    }
+                    IconButton(onClick = { token = null; clearToken() }) {
+                        Icon(Icons.Filled.Settings, contentDescription = "Выйти из аккаунта", tint = Muted)
+                    }
                 }
-                Text("Сообщения", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                Spacer(Modifier.height(14.dp))
+                if (chatSearchVisible) {
+                    OutlinedTextField(
+                        value = chatSearch, onValueChange = { chatSearch = it },
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                        placeholder = { Text("Поиск чатов", color = Muted) },
+                        singleLine = true, shape = RoundedCornerShape(16.dp),
+                        colors = fieldColors()
+                    )
+                }
+                Text("Чаты", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Spacer(Modifier.height(10.dp))
                 if (loading && chats.isEmpty()) CircularProgressIndicator(color = Accent)
                 if (chats.isEmpty() && !loading) Text("Пока нет чатов", color = Muted, modifier = Modifier.padding(top = 24.dp))
                 LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                    items(chats, key = { it.id }) { chat ->
+                    items(chats.filter { it.title.contains(chatSearch, ignoreCase = true) || it.subtitle.contains(chatSearch, ignoreCase = true) }, key = { it.id }) { chat ->
                         Row(
-                            Modifier.fillMaxWidth().background(Color(0xFF24252C), RoundedCornerShape(20.dp))
-                                .clickable { active = chat; page = "chats" }.padding(horizontal = 16.dp, vertical = 15.dp),
+                            Modifier.fillMaxWidth()
+                                .clickable { active = chat; page = "chats" }.padding(horizontal = 6.dp, vertical = 11.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(Modifier.size(48.dp).background(Accent.copy(alpha = .18f), CircleShape), contentAlignment = Alignment.Center) {
+                            Box(Modifier.size(52.dp).background(Accent.copy(alpha = .20f), CircleShape), contentAlignment = Alignment.Center) {
                                 Text(chat.title.take(1).uppercase(), color = Accent, fontWeight = FontWeight.Bold, fontSize = 19.sp)
                             }
                             Spacer(Modifier.width(13.dp))
@@ -398,7 +414,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                                 Spacer(Modifier.height(3.dp))
                                 Text(chat.subtitle, color = Muted, fontSize = 13.sp, maxLines = 1)
                             }
-                            Text("›", color = Muted, fontSize = 25.sp)
+                            Icon(Icons.Filled.Chat, contentDescription = "Открыть чат", tint = Muted.copy(alpha = .75f), modifier = Modifier.size(18.dp))
                         }
                     }
                 }
