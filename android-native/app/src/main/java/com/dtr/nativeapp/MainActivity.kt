@@ -1,6 +1,8 @@
 package com.dtr.nativeapp
 
 import android.os.Bundle
+import android.content.Intent
+import android.net.Uri
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -14,6 +16,9 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -98,6 +103,8 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
     var call by remember { mutableStateOf<DtrCall?>(null) }
     var callEngine by remember { mutableStateOf<DtrCallEngine?>(null) }
     var pendingCallAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var updateStatus by remember { mutableStateOf<String?>(null) }
+    var updateUrl by remember { mutableStateOf<String?>(null) }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
         if (grants.values.all { it }) pendingCallAction?.invoke() else error = "Для звонка нужны разрешения на микрофон и камеру."
         pendingCallAction = null
@@ -232,7 +239,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
         try { loadMessages(selected) } catch (e: Exception) { error = e.message }
     }
 
-    Surface(modifier = Modifier.fillMaxSize(), color = Bg) {
+    Surface(modifier = Modifier.fillMaxSize().imePadding(), color = Bg) {
         if (token == null) {
             AuthScreen(
                 username, { username = it }, password, { password = it },
@@ -257,9 +264,13 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
         } else if (active == null) {
             Column(Modifier.fillMaxSize().padding(horizontal = 18.dp)) {
                 Row(Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("DTR", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Black)
-                        Text("ТВОЁ ОБЩЕНИЕ. БЕЗ ГРАНИЦ.", color = Muted, fontSize = 10.sp, letterSpacing = 1.4.sp)
+                    Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                        DtrLogo(46)
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text("DTR", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+                            Text("ТВОЁ ОБЩЕНИЕ. БЕЗ ГРАНИЦ.", color = Muted, fontSize = 9.sp, letterSpacing = 1.1.sp)
+                        }
                     }
                     TextButton(onClick = { token = null; clearToken() }) { Text("Выйти", color = Muted) }
                 }
@@ -405,12 +416,19 @@ private fun AuthScreen(
     register: Boolean, onRegister: (Boolean) -> Unit,
     loading: Boolean, error: String?, onSubmit: () -> Unit
 ) {
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = 26.dp),
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+      Column(
+        Modifier.fillMaxWidth().widthIn(max = 440.dp).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 28.dp),
         verticalArrangement = Arrangement.Center
-    ) {
-        Text("DTR", color = Color.White, fontSize = 42.sp, fontWeight = FontWeight.Black)
-        Text("МЕССЕНДЖЕР", color = Accent, fontSize = 12.sp, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
+      ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            DtrLogo(64)
+            Spacer(Modifier.width(16.dp))
+            Column {
+                Text("DTR", color = Color.White, fontSize = 42.sp, fontWeight = FontWeight.Black, letterSpacing = 1.5.sp)
+                Text("МЕССЕНДЖЕР", color = Accent, fontSize = 12.sp, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
+            }
+        }
         Spacer(Modifier.height(28.dp))
         Text(if (register) "Создать аккаунт" else "С возвращением", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(16.dp))
@@ -430,6 +448,7 @@ private fun AuthScreen(
             Text(if (register) "Уже есть аккаунт? Войти" else "Нет аккаунта? Регистрация", color = Muted)
         }
         Text("Ваши существующие чаты и аккаунт остаются на сервере DTR.", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 18.dp))
+      }
     }
 }
 
@@ -449,12 +468,21 @@ private fun fieldColors() = OutlinedTextFieldDefaults.colors(
 
 
 @Composable
+private fun DtrLogo(size: Int) {
+    Box(Modifier.size(size.dp).background(Panel, CircleShape), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxSize().padding(3.dp).background(Accent.copy(alpha = .16f), CircleShape))
+        Text("D", color = Color.White, fontSize = (size * .56f).sp, fontWeight = FontWeight.Black)
+        Box(Modifier.align(Alignment.BottomEnd).padding(7.dp).size((size * .13f).dp).background(Accent, CircleShape))
+    }
+}
+
+@Composable
 private fun NativeBottomNav(page: String, onSelect: (String) -> Unit) {
     val items = listOf("friends" to "Друзья", "feed" to "Лента", "chats" to "Чаты", "stories" to "Истории", "settings" to "Ещё")
-    Row(Modifier.fillMaxWidth().background(Panel).navigationBarsPadding().padding(horizontal = 3.dp, vertical = 7.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+    Row(Modifier.fillMaxWidth().background(Panel).navigationBarsPadding().padding(horizontal = 2.dp, vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         items.forEach { (key, label) ->
-            TextButton(onClick = { onSelect(key) }) {
-                Text(label, color = if (page == key) Accent else Muted, fontSize = 11.sp, fontWeight = if (page == key) FontWeight.Bold else FontWeight.Normal)
+            TextButton(onClick = { onSelect(key) }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 2.dp, vertical = 6.dp)) {
+                Text(label, color = if (page == key) Accent else Muted, fontSize = 10.sp, maxLines = 1, fontWeight = if (page == key) FontWeight.Bold else FontWeight.Normal)
             }
         }
     }
@@ -572,6 +600,37 @@ private fun NativeFeaturePage(
                 OutlinedTextField(value=input,onValueChange={input=it},modifier=Modifier.fillMaxWidth().padding(12.dp),label={Text("Статус или эмодзи")},colors=fieldColors())
                 Button(onClick={scope.launch{try{api("/api/profile/status","PATCH",JSONObject().put("statusEmoji",input));info="Статус обновлён";refresh()}catch(e:Exception){error=e.message}}},modifier=Modifier.fillMaxWidth().padding(horizontal=12.dp)){Text("Сохранить статус")}
                 listOf("notes" to "Мои заметки","support" to "Центр поддержки","admin" to "Панель управления").forEach{(k,v)->TextButton(onClick={onNavigate(k)}){Text(v,color=Accent)}}
+                Button(onClick = { scope.launch {
+                    updateStatus = "Проверяем обновления…"; updateUrl = null
+                    try {
+                        val req = Request.Builder().url("https://api.github.com/repos/Hqhsha/-dtr-messenger/releases?per_page=30").header("Accept", "application/vnd.github+json").header("User-Agent", "DTR-Android").build()
+                        val response = withContext(Dispatchers.IO) { http.newCall(req).execute() }
+                        val raw = response.body?.string().orEmpty()
+                        if (!response.isSuccessful) throw IllegalStateException("Ошибка проверки: " + response.code)
+                        val releases = JSONArray(raw)
+                        val release = (0 until releases.length()).map { releases.getJSONObject(it) }.firstOrNull { it.optString("tag_name").startsWith("native-v") }
+                        if (release == null) updateStatus = "Пока нет опубликованных обновлений"
+                        else {
+                            val assetArray = release.optJSONArray("assets") ?: JSONArray()
+                            val asset = (0 until assetArray.length()).map { assetArray.getJSONObject(it) }.firstOrNull { it.optString("name").endsWith(".apk", true) }
+                            val latest = release.optString("tag_name").removePrefix("native-v")
+                            val current = BuildConfig.VERSION_NAME.substringBefore("-")
+                            val latestParts = latest.split(".").map { it.toIntOrNull() ?: 0 }
+                            val currentParts = current.split(".").map { it.toIntOrNull() ?: 0 }
+                            var newer = false
+                            for (i in 0..2) {
+                                val a = latestParts.getOrElse(i) { 0 }; val b = currentParts.getOrElse(i) { 0 }
+                                if (a != b) { newer = a > b; break }
+                            }
+                            if (newer && asset != null) {
+                                updateStatus = "Доступна DTR " + latest
+                                updateUrl = asset.optString("browser_download_url")
+                            } else updateStatus = "Установлена актуальная версия " + BuildConfig.VERSION_NAME
+                        }
+                    } catch (e: Exception) { updateStatus = e.message ?: "Не удалось проверить обновления" }
+                } }, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp), colors = ButtonDefaults.buttonColors(containerColor = Accent), shape = RoundedCornerShape(14.dp)) { Text("Проверить обновления") }
+                updateStatus?.let { Text(it, color = Muted, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) }
+                updateUrl?.let { url -> Button(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = RoundedCornerShape(14.dp)) { Text("Скачать новую версию") } }
                 Spacer(Modifier.weight(1f))
             }
             "support" -> {
