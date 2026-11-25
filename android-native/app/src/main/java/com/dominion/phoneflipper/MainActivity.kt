@@ -66,6 +66,9 @@ private fun PhoneFlipper(saved: String?, persist: (String) -> Unit) {
     var pixelTarget by remember { mutableIntStateOf(Random.nextInt(9)) }
     var pixelHits by remember { mutableIntStateOf(0) }
     var batteryTaps by remember { mutableIntStateOf(0) }
+    var tradeLot by remember { mutableStateOf<MarketLot?>(null) }
+    var tradeOffer by remember { mutableIntStateOf(0) }
+    var tradeMessage by remember { mutableStateOf("") }
 
     fun save() {
         val root = JSONObject().put("cash", cash).put("level", level).put("xp", xp).put("sales", sales)
@@ -141,11 +144,7 @@ private fun PhoneFlipper(saved: String?, persist: (String) -> Unit) {
                                     }
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    OutlinedButton(onClick = {
-                                        val reduced = (lot.price - Random.nextInt(500, 1800)).coerceAtLeast(1000)
-                                        market = market.map { if (it == lot) it.copy(price = reduced) else it }
-                                        note = "Торг успешен: $reduced ₽"
-                                    }) { Text("Торг") }
+                                    OutlinedButton(onClick = { tradeLot = lot; tradeOffer = (lot.price * 0.85).toInt(); tradeMessage = "Предложи цену продавцу." }) { Text("Торг") }
                                     Button(onClick = {
                                         if (cash < lot.price) note = "Не хватает денег."
                                         else {
@@ -244,6 +243,39 @@ private fun PhoneFlipper(saved: String?, persist: (String) -> Unit) {
                     }
                 }
             }
+        }
+        tradeLot?.let { lot ->
+            AlertDialog(
+                onDismissRequest = { tradeLot = null },
+                containerColor = panel,
+                title = { Text("Торг • ${lot.model.model}", color = ink, fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("Цена продавца: ${lot.price} ₽", color = muted)
+                        Text("Твоё предложение: ${tradeOffer} ₽", color = ink, fontWeight = FontWeight.Bold)
+                        Slider(value = tradeOffer.toFloat(), onValueChange = { tradeOffer = it.toInt() }, valueRange = (lot.price * 0.45f)..lot.price.toFloat())
+                        Text(tradeMessage, color = accent)
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        val minimum = (lot.model.market * 0.68).toInt()
+                        if (tradeOffer >= lot.price) {
+                            market = market.map { if (it == lot) it.copy(price = tradeOffer) else it }
+                            tradeLot = null
+                            note = "Торг завершён: ${tradeOffer} ₽"
+                        } else if (tradeOffer >= minimum) {
+                            val counter = ((tradeOffer + lot.price) / 2).coerceAtMost(lot.price)
+                            market = market.map { if (it == lot) it.copy(price = counter) else it }
+                            tradeLot = null
+                            note = "Продавец уступил: ${counter} ₽"
+                        } else {
+                            tradeMessage = "Слишком низко. Продавец просит около ${minimum} ₽."
+                        }
+                    }) { Text("Предложить") }
+                },
+                dismissButton = { TextButton(onClick = { tradeLot = null }) { Text("Отмена") } }
+            )
         }
     }
 }
