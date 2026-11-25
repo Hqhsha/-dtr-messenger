@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -382,7 +383,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                         Icon(Icons.Filled.Search, contentDescription = "Поиск чатов", tint = Color.White)
                     }
                     IconButton(onClick = { token = null; clearToken() }) {
-                        Icon(Icons.Filled.Settings, contentDescription = "Выйти из аккаунта", tint = Muted)
+                        Icon(Icons.Filled.Logout, contentDescription = "Выйти из аккаунта", tint = Muted)
                     }
                 }
                 if (chatSearchVisible) {
