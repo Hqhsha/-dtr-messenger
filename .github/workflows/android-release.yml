@@ -56,10 +56,10 @@ jobs:
           from pathlib import Path
           path = Path("android/app/build.gradle")
           text = path.read_text()
-          text, count = re.subn(r'(defaultConfig\\s*\\{)', r'\\1\\n        versionCode ' + sys.argv[1] + '\\n        versionName "' + sys.argv[2] + '"', text, count=1)
+          text, count = re.subn(r'(defaultConfig\s*\{)', r'\1\n        versionCode ' + sys.argv[1] + '\n        versionName "' + sys.argv[2] + '"', text, count=1)
           if count != 1:
               raise SystemExit("Could not set Android versionCode/versionName")
-          text = re.sub(r'\\n\\s*versionCode\\s+\\d+', '', text, count=1) if text.count("versionCode") > 1 else text
+          text = re.sub(r'\n\s*versionCode\s+\d+', '', text, count=1) if text.count("versionCode") > 1 else text
           path.write_text(text)
           PY
       - name: Decode signing key
