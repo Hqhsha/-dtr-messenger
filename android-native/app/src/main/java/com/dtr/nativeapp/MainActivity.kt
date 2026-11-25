@@ -1,6 +1,8 @@
 package com.dtr.nativeapp
 
 import android.os.Bundle
+import android.media.MediaRecorder
+import android.os.Build
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -103,6 +105,10 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
     var register by remember { mutableStateOf(false) }
     var draft by remember { mutableStateOf("") }
     var pickerMime by remember { mutableStateOf("image/*") }
+    var voiceRecorder by remember { mutableStateOf<MediaRecorder?>(null) }
+    var voiceFile by remember { mutableStateOf<java.io.File?>(null) }
+    var isRecordingVoice by remember { mutableStateOf(false) }
+    var startRecordingAfterPermission by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var socket by remember { mutableStateOf<Socket?>(null) }
@@ -176,7 +182,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
         try {
             val result = withContext(Dispatchers.IO) {
                 val mime = context.contentResolver.getType(uri) ?: mimeType
-                val name = context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null } ?: if (mime.startsWith("video/")) "video.mp4" else "photo.jpg"
+                val name = context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null } ?: if (mime.startsWith("video/")) "video.mp4" else if (mime.startsWith("audio/")) "voice.m4a" else "photo.jpg"
                 val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: throw IllegalStateException("Не удалось прочитать файл")
                 if (bytes.size > 12 * 1024 * 1024) throw IllegalStateException("Файл больше 12 МБ")
                 val multipart = MultipartBody.Builder().setType(MultipartBody.FORM).addFormDataPart("media", name, bytes.toRequestBody(mime.toMediaType())).build()
@@ -189,15 +195,62 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
             }
             val m = result.optJSONObject("message")
             if (m != null) {
-                val item = DtrMessage(m.optString("id"), m.optString("senderId"), m.optString("body"), m.optString("displayName"), m.optString("createdAt"), messageType = m.optString("messageType", if (mimeType.startsWith("video/")) "video" else "image"), mediaUrl = m.optString("mediaUrl").takeIf { it.isNotBlank() && it != "null" })
+                val item = DtrMessage(m.optString("id"), m.optString("senderId"), m.optString("body"), m.optString("displayName"), m.optString("createdAt"), messageType = m.optString("messageType", if (mimeType.startsWith("video/")) "video" else if (mimeType.startsWith("audio/")) "audio" else "image"), mediaUrl = m.optString("mediaUrl").takeIf { it.isNotBlank() && it != "null" })
                 if (messages.none { it.id == item.id }) messages = messages + item
             }
         } catch (e: Exception) { error = e.message ?: "Не удалось отправить файл" }
         finally { loading = false }
     }
 
-    val mediaPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) scope.launch { uploadMedia(uri, pickerMime) }
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) scope.launch { uploadMedia(uri, "image/*") }
+    }
+    val videoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) scope.launch { uploadMedia(uri, "video/*") }
+    }
+    fun startVoiceRecording() {
+        try {
+            val file = java.io.File(context.cacheDir, "dtr-voice-${System.currentTimeMillis()}.m4a")
+            val r = if (Build.VERSION.SDK_INT >= 31) MediaRecorder(context) else MediaRecorder()
+            r.setAudioSource(MediaRecorder.AudioSource.MIC)
+            r.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            r.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            r.setOutputFile(file.absolutePath)
+            r.prepare()
+            r.start()
+            voiceRecorder = r
+            voiceFile = file
+            isRecordingVoice = true
+            error = null
+        } catch (e: Exception) {
+            voiceRecorder?.runCatching { reset(); release() }
+            voiceRecorder = null
+            isRecordingVoice = false
+            error = e.message ?: "Не удалось начать запись"
+        }
+    }
+    fun stopVoiceRecording() {
+        val r = voiceRecorder ?: return
+        val file = voiceFile
+        try {
+            r.stop()
+        } catch (e: Exception) {
+            error = "Запись слишком короткая. Попробуй ещё раз."
+            file?.delete()
+        } finally {
+            runCatching { r.reset(); r.release() }
+            voiceRecorder = null
+            voiceFile = null
+            isRecordingVoice = false
+        }
+        if (file != null && file.exists() && file.length() > 0L) {
+            scope.launch { uploadMedia(Uri.fromFile(file), "audio/mp4"); file.delete() }
+        }
+    }
+    val audioPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted && startRecordingAfterPermission) startVoiceRecording()
+        else if (!granted) error = "Разреши доступ к микрофону для записи голосового сообщения."
+        startRecordingAfterPermission = false
     }
 
     suspend fun loadChats() {
@@ -383,12 +436,17 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                 }
                 Row(Modifier.fillMaxWidth().background(Panel).padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (editingMessage == null) {
-                        IconButton(onClick = { pickerMime = "image/*"; mediaPicker.launch(pickerMime) }, enabled = !loading) { Text("＋", color = Accent, fontSize = 24.sp) }
-                        IconButton(onClick = { pickerMime = "video/*"; mediaPicker.launch(pickerMime) }, enabled = !loading) { Text("▣", color = Accent, fontSize = 19.sp) }
+                        IconButton(onClick = { imagePicker.launch("image/*") }, enabled = !loading && !isRecordingVoice) { Text("＋", color = Accent, fontSize = 24.sp) }
+                        IconButton(onClick = { videoPicker.launch("video/*") }, enabled = !loading && !isRecordingVoice) { Text("▣", color = Accent, fontSize = 19.sp) }
+                        IconButton(onClick = {
+                            if (isRecordingVoice) stopVoiceRecording()
+                            else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) startVoiceRecording()
+                            else { startRecordingAfterPermission = true; audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO) }
+                        }, enabled = !loading) { Text(if (isRecordingVoice) "■" else "🎙", color = if (isRecordingVoice) Color(0xFFFF7777) else Accent, fontSize = 20.sp) }
                     }
                     OutlinedTextField(
                         value = draft, onValueChange = { draft = it }, modifier = Modifier.weight(1f),
-                        placeholder = { Text(if(editingMessage!=null) "Редактирование…" else "Сообщение…", color = Muted) }, shape = RoundedCornerShape(24.dp),
+                        placeholder = { Text(if(isRecordingVoice) "Запись голосового… нажми ■ для отправки" else if(editingMessage!=null) "Редактирование…" else "Сообщение…", color = Muted) }, shape = RoundedCornerShape(24.dp),
                         maxLines = 4, colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White, unfocusedTextColor = Color.White,
                             focusedBorderColor = Accent, unfocusedBorderColor = Color.Transparent,
@@ -397,7 +455,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                     )
                     Spacer(Modifier.width(7.dp))
                     IconButton(
-                        enabled = draft.isNotBlank(),
+                        enabled = draft.isNotBlank() && !isRecordingVoice,
                         onClick = {
                             val text = draft.trim()
                             val chat = active ?: return@IconButton
