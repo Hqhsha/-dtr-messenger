@@ -12,8 +12,8 @@ android {
         applicationId = "com.dtr.messenger.nativepreview"
         minSdk = 24
         targetSdk = 35
-        versionCode = (project.findProperty("nativeVersionCode") as String?)?.toInt() ?: 1003
-        versionName = project.findProperty("nativeVersionName") as String? ?: "1.3.0-native"
+        versionCode = (project.findProperty("nativeVersionCode") as String?)?.toInt() ?: 1004
+        versionName = project.findProperty("nativeVersionName") as String? ?: "1.4.0-native"
     }
 
     buildFeatures { buildConfig = true }
