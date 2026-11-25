@@ -382,7 +382,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                         }
                     }
                     IconButton(onClick = { chatSearchVisible = !chatSearchVisible; if (!chatSearchVisible) chatSearch = "" }) {
-                        Icon(Icons.Filled.Search, contentDescription = "Поиск чатов", tint = Color.White)
+                        Icon(Icons.Filled.Search, contentDescription = "Поиск чатов", tint = TextMain)
                     }
                     IconButton(onClick = { token = null; clearToken() }) {
                         Icon(Icons.Filled.Logout, contentDescription = "Выйти из аккаунта", tint = Muted)
@@ -397,7 +397,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                         colors = fieldColors()
                     )
                 }
-                Text("Чаты", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("Чаты", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextMain)
                 Spacer(Modifier.height(10.dp))
                 if (loading && chats.isEmpty()) CircularProgressIndicator(color = Accent)
                 if (chats.isEmpty() && !loading) Text("Пока нет чатов", color = Muted, modifier = Modifier.padding(top = 24.dp))
@@ -413,7 +413,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                             }
                             Spacer(Modifier.width(13.dp))
                             Column(Modifier.weight(1f)) {
-                                Text(chat.title, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                                Text(chat.title, color = TextMain, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                                 Spacer(Modifier.height(3.dp))
                                 Text(chat.subtitle, color = Muted, fontSize = 13.sp, maxLines = 1)
                             }
@@ -421,7 +421,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                         }
                     }
                 }
-                error?.let { Text(it, color = Color(0xFFFF7777), modifier = Modifier.padding(top = 8.dp)) }
+                error?.let { Text(it, color = Muted, modifier = Modifier.padding(top = 8.dp)) }
                 NativeBottomNav(page = page, onSelect = { page = it })
             }
         } else {
@@ -430,9 +430,9 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                     Modifier.fillMaxWidth().background(Panel).padding(horizontal = 12.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = { active = null; page = "chats" }) { Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = Color.White) }
+                    IconButton(onClick = { active = null; page = "chats" }) { Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = TextMain) }
                     Column(Modifier.weight(1f)) {
-                        Text(active!!.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                        Text(active!!.title, color = TextMain, fontWeight = FontWeight.Bold, fontSize = 17.sp)
                         Text("В сети • DTR", color = Muted, fontSize = 11.sp)
                     }
                     if (active!!.type == "direct" && active!!.peerId != null) {
@@ -449,7 +449,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                                 Modifier.widthIn(max = 320.dp).background(if (selectedMessage?.id==msg.id) Accent.copy(alpha=.22f) else if (mine) Color(0xFFE4D5F7) else Color(0xFFFFFFFF), RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = if (mine) 18.dp else 5.dp, bottomEnd = if (mine) 5.dp else 18.dp)).clickable { selectedMessage=if(selectedMessage?.id==msg.id)null else msg }.padding(horizontal = 13.dp, vertical = 9.dp)
                             ) {
                                 if (!mine) Text(msg.displayName.ifBlank { "Участник" }, color = Accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                Text(when(msg.messageType) { "image" -> "▧  Фото\n${msg.body}"; "video" -> "▶  Видео\n${msg.body}"; "audio" -> "♫  Голосовое сообщение\n${msg.body}"; else -> msg.body }, color = Color.White, fontSize = 15.sp)
+                                Text(when(msg.messageType) { "image" -> "▧  Фото\n${msg.body}"; "video" -> "▶  Видео\n${msg.body}"; "audio" -> "♫  Голосовое сообщение\n${msg.body}"; else -> msg.body }, color = TextMain, fontSize = 15.sp)
                                 if(msg.editedAt!=null) Text("изменено",color=Muted,fontSize=10.sp)
                                 if(msg.reactions.isNotEmpty()) Text(msg.reactions.joinToString("  ") { it.emoji+" "+it.count },color=Accent,fontSize=12.sp,modifier=Modifier.padding(top=4.dp))
                             }
@@ -461,12 +461,12 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                         listOf("👍","❤️","😂","🔥").forEach { emoji -> TextButton(onClick={scope.launch{try{val d=request("/api/messages/"+selected.id+"/reactions","POST",JSONObject().put("emoji",emoji));val a=d.optJSONArray("reactions")?:JSONArray();val updated=(0 until a.length()).mapNotNull{k->a.optJSONObject(k)?.let{DtrReaction(it.optString("emoji"),it.optInt("count"),it.optBoolean("mine"))}};messages=messages.map{if(it.id==selected.id)it.copy(reactions=updated)else it};selectedMessage=null}catch(e:Exception){error=e.message}}}){Text(emoji)} }
                         if(selected.senderId==me?.id) {
                             TextButton(onClick={editingMessage=selected;draft=selected.body;selectedMessage=null}){Text("Изменить",color=Accent)}
-                            TextButton(onClick={scope.launch{try{request("/api/messages/"+selected.id,"DELETE",null);messages=messages.map{if(it.id==selected.id)it.copy(body="Сообщение удалено",editedAt=null,reactions=emptyList())else it};selectedMessage=null}catch(e:Exception){error=e.message}}}){Text("Удалить",color=Color(0xFFFF7777))}
+                            TextButton(onClick={scope.launch{try{request("/api/messages/"+selected.id,"DELETE",null);messages=messages.map{if(it.id==selected.id)it.copy(body="Сообщение удалено",editedAt=null,reactions=emptyList())else it};selectedMessage=null}catch(e:Exception){error=e.message}}}){Text("Удалить",color=Muted)}
                         }
                         TextButton(onClick={selectedMessage=null}){Text("×",color=Muted)}
                     }
                 }
-                Row(Modifier.fillMaxWidth().background(Color(0xFF202127)).padding(horizontal = 9.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().background(SoftPanel).padding(horizontal = 9.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (editingMessage == null) {
                         IconButton(onClick = { imagePicker.launch("image/*") }, enabled = !loading && !isRecordingVoice) { Icon(Icons.Filled.AttachFile, contentDescription = "Прикрепить файл", tint = Accent) }
                         IconButton(onClick = { videoPicker.launch("video/*") }, enabled = !loading && !isRecordingVoice) { Icon(Icons.Filled.Image, contentDescription = "Отправить видео", tint = Accent) }
@@ -474,13 +474,13 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                             if (isRecordingVoice) stopVoiceRecording()
                             else if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) startVoiceRecording()
                             else { startRecordingAfterPermission = true; audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO) }
-                        }, enabled = !loading) { Icon(if (isRecordingVoice) Icons.Filled.Stop else Icons.Filled.Mic, contentDescription = if (isRecordingVoice) "Остановить запись" else "Записать голосовое", tint = if (isRecordingVoice) Color(0xFFFF7777) else Accent) }
+                        }, enabled = !loading) { Icon(if (isRecordingVoice) Icons.Filled.Stop else Icons.Filled.Mic, contentDescription = if (isRecordingVoice) "Остановить запись" else "Записать голосовое", tint = if (isRecordingVoice) Muted else Accent) }
                     }
                     OutlinedTextField(
                         value = draft, onValueChange = { draft = it }, modifier = Modifier.weight(1f),
                         placeholder = { Text(if(isRecordingVoice) "Запись голосового… нажми ■ для отправки" else if(editingMessage!=null) "Редактирование…" else "Сообщение…", color = Muted) }, shape = RoundedCornerShape(24.dp),
                         maxLines = 4, colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                            focusedTextColor = TextMain, unfocusedTextColor = Muted,
                             focusedBorderColor = Accent, unfocusedBorderColor = Color.Transparent,
                             focusedContainerColor = Bg, unfocusedContainerColor = Bg
                         )
@@ -500,7 +500,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                         }
                     ) { Icon(Icons.Default.Send, contentDescription = "Отправить", tint = if (draft.isBlank()) Muted else Accent) }
                 }
-                error?.let { Text(it, color = Color(0xFFFF7777), modifier = Modifier.padding(8.dp)) }
+                error?.let { Text(it, color = Muted, modifier = Modifier.padding(8.dp)) }
             }
         }
         if (call != null) CallOverlay(call!!, callEngine, onAccept = { acceptCall() }, onEnd = { finishCall() })
@@ -511,17 +511,17 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
 private fun CallOverlay(call: DtrCall, engine: DtrCallEngine?, onAccept: () -> Unit, onEnd: () -> Unit) {
     Surface(Modifier.fillMaxSize(), color = Color(0xFFF4EFFB)) {
         Column(Modifier.fillMaxSize().padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Text(if (call.video) "Видеозвонок" else "Голосовой звонок", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text(if (call.video) "Видеозвонок" else "Голосовой звонок", color = TextMain, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             Text(when(call.status) { "incoming" -> "Входящий вызов"; "calling" -> "Вызов…"; "active" -> "На связи"; "failed" -> "Не удалось соединиться"; else -> "Соединение…" }, color = Muted)
             Spacer(Modifier.height(20.dp))
             if (call.video && engine != null) {
                 if (engine.remoteVideoTrack != null) CallVideo(engine.remoteVideoTrack, engine.eglContext, Modifier.fillMaxWidth().weight(1f), false)
-                else Box(Modifier.fillMaxWidth().weight(1f).background(Panel, RoundedCornerShape(22.dp)), contentAlignment = Alignment.Center) { Text(call.peerName, color = Color.White, fontSize = 24.sp) }
+                else Box(Modifier.fillMaxWidth().weight(1f).background(Panel, RoundedCornerShape(22.dp)), contentAlignment = Alignment.Center) { Text(call.peerName, color = TextMain, fontSize = 24.sp) }
                 if (engine.localVideoTrack != null) CallVideo(engine.localVideoTrack, engine.eglContext, Modifier.width(112.dp).height(156.dp), true)
             } else {
                 Box(Modifier.size(132.dp).background(Accent.copy(alpha = .2f), CircleShape), contentAlignment = Alignment.Center) { Text(call.peerName.take(1).uppercase(), color = Accent, fontSize = 48.sp, fontWeight = FontWeight.Bold) }
-                Spacer(Modifier.height(18.dp)); Text(call.peerName, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(18.dp)); Text(call.peerName, color = TextMain, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
             }
             Spacer(Modifier.height(28.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -565,12 +565,12 @@ private fun AuthScreen(
             DtrLogo(64)
             Spacer(Modifier.width(16.dp))
             Column {
-                Text("DTR", color = Color.White, fontSize = 42.sp, fontWeight = FontWeight.Black, letterSpacing = 1.5.sp)
+                Text("DTR", color = TextMain, fontSize = 42.sp, fontWeight = FontWeight.Black, letterSpacing = 1.5.sp)
                 Text("МЕССЕНДЖЕР", color = Accent, fontSize = 12.sp, letterSpacing = 3.sp, fontWeight = FontWeight.Bold)
             }
         }
         Spacer(Modifier.height(28.dp))
-        Text(if (register) "Создать аккаунт" else "С возвращением", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Bold)
+        Text(if (register) "Создать аккаунт" else "С возвращением", color = TextMain, fontSize = 23.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(16.dp))
         if (register) NativeField(displayName, onDisplayName, "Имя")
         NativeField(username, onUsername, "Логин")
@@ -579,10 +579,10 @@ private fun AuthScreen(
             label = { Text("Пароль") }, singleLine = true, visualTransformation = PasswordVisualTransformation(),
             colors = fieldColors()
         )
-        error?.let { Text(it, color = Color(0xFFFF7777), modifier = Modifier.padding(top = 10.dp)) }
+        error?.let { Text(it, color = Muted, modifier = Modifier.padding(top = 10.dp)) }
         Spacer(Modifier.height(18.dp))
         Button(onClick = onSubmit, enabled = !loading && username.isNotBlank() && password.isNotBlank(), modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(15.dp)) {
-            if (loading) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White) else Text(if (register) "Зарегистрироваться" else "Войти", fontWeight = FontWeight.Bold)
+            if (loading) CircularProgressIndicator(Modifier.size(20.dp), color = TextMain) else Text(if (register) "Зарегистрироваться" else "Войти", fontWeight = FontWeight.Bold)
         }
         TextButton(onClick = { onRegister(!register) }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
             Text(if (register) "Уже есть аккаунт? Войти" else "Нет аккаунта? Регистрация", color = Muted)
@@ -600,7 +600,7 @@ private fun NativeField(value: String, onValue: (String) -> Unit, label: String)
 
 @Composable
 private fun fieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+    focusedTextColor = TextMain, unfocusedTextColor = Muted,
     focusedBorderColor = Accent, unfocusedBorderColor = Muted.copy(alpha = .35f),
     focusedLabelColor = Accent, unfocusedLabelColor = Muted,
     focusedContainerColor = Panel, unfocusedContainerColor = Panel
@@ -628,7 +628,7 @@ private fun NativeBottomNav(page: String, onSelect: (String) -> Unit) {
     NavigationBar(
         modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
         containerColor = Panel,
-        contentColor = Color.White,
+        contentColor = TextMain,
         tonalElevation = 0.dp
     ) {
         items.forEach { (key, icon, label) ->
@@ -719,8 +719,8 @@ private fun NativeFeaturePage(
     LaunchedEffect(page) { refresh() }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().background(Panel).padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = Color.White) }
-            Text(title, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = TextMain) }
+            Text(title, color = TextMain, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             TextButton(onClick = { scope.launch { refresh() } }) { Text("↻", color = Accent, fontSize = 20.sp) }
         }
         when (page) {
@@ -761,7 +761,7 @@ private fun NativeFeaturePage(
                     if(incomingRows.isNotEmpty()) item { Text("Входящие заявки · ${incomingRows.size}",color=Accent,fontWeight=FontWeight.SemiBold) }
                     items(incomingRows,key={"incoming-"+it.optString("requestId")}) { u ->
                         Row(Modifier.fillMaxWidth().background(Panel,RoundedCornerShape(14.dp)).padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) { Text(u.optString("displayName"),color=Color.White,fontWeight=FontWeight.SemiBold); Text("@"+u.optString("username"),color=Muted,fontSize=12.sp) }
+                            Column(Modifier.weight(1f)) { Text(u.optString("displayName"),color=TextMain,fontWeight=FontWeight.SemiBold); Text("@"+u.optString("username"),color=Muted,fontSize=12.sp) }
                             TextButton(onClick={scope.launch{try{api("/api/friends/requests/"+u.optString("requestId"),"PATCH",JSONObject().put("action","accept"));refresh();info="Заявка принята"}catch(e:Exception){error=e.message}}}){Text("Принять",color=Accent)}
                             TextButton(onClick={scope.launch{try{api("/api/friends/requests/"+u.optString("requestId"),"PATCH",JSONObject().put("action","reject"));refresh()}catch(e:Exception){error=e.message}}}){Text("Отклонить",color=Muted)}
                         }
@@ -777,7 +777,7 @@ private fun NativeFeaturePage(
                     items(visibleFriends,key={"friend-"+it.optString("id")}) { u ->
                         val id=u.optString("id"); val favorite=favoriteIds.contains(id)
                         Row(Modifier.fillMaxWidth().background(Panel,RoundedCornerShape(14.dp)).padding(horizontal=8.dp,vertical=6.dp),verticalAlignment=Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f).padding(start=4.dp)) { Text(u.optString("displayName"),color=Color.White,fontWeight=FontWeight.SemiBold); Text("@"+u.optString("username"),color=Muted,fontSize=12.sp) }
+                            Column(Modifier.weight(1f).padding(start=4.dp)) { Text(u.optString("displayName"),color=TextMain,fontWeight=FontWeight.SemiBold); Text("@"+u.optString("username"),color=Muted,fontSize=12.sp) }
                             TextButton(onClick={scope.launch{try{api("/api/favorites/"+id,if(favorite)"DELETE" else "POST",if(favorite)null else JSONObject());favoriteIds=if(favorite)favoriteIds-id else favoriteIds+id;info=if(favorite)"Убрано из избранного" else "Добавлено в избранное"}catch(e:Exception){error=e.message}}}){Text(if(favorite)"★" else "☆",color=Accent,fontSize=18.sp)}
                             TextButton(onClick={scope.launch{try{api("/api/friends/"+id,"DELETE",null);refresh();info="Удалено из друзей"}catch(e:Exception){error=e.message}}}){Text("Удалить",color=Muted,fontSize=11.sp)}
                         }
@@ -792,7 +792,7 @@ private fun NativeFeaturePage(
                     items(rows,key={it.optString("id")}){p->
                         Column(Modifier.fillMaxWidth().background(Panel,RoundedCornerShape(16.dp)).padding(14.dp)){
                             Text(p.optString("display_name",p.optString("username")),color=Accent,fontWeight=FontWeight.Bold)
-                            Text(p.optString("body"),color=Color.White,modifier=Modifier.padding(vertical=10.dp))
+                            Text(p.optString("body"),color=TextMain,modifier=Modifier.padding(vertical=10.dp))
                             TextButton(onClick={scope.launch{try{api("/api/feed/"+p.optString("id")+"/like","POST",JSONObject());refresh()}catch(e:Exception){error=e.message}}}){Text((if(p.optBoolean("liked"))"♥ " else "♡ ")+p.optInt("likes")+" · "+p.optInt("comments")+" комментариев",color=Accent)}
                         }
                     }
@@ -816,7 +816,7 @@ private fun NativeFeaturePage(
             "settings" -> {
                 val user=rows.firstOrNull()?:JSONObject()
                 Text("Аккаунт",color=Accent,fontWeight=FontWeight.Bold,modifier=Modifier.padding(16.dp))
-                Text(user.optString("displayName")+"  @"+user.optString("username"),color=Color.White,modifier=Modifier.padding(horizontal=16.dp))
+                Text(user.optString("displayName")+"  @"+user.optString("username"),color=TextMain,modifier=Modifier.padding(horizontal=16.dp))
                 OutlinedTextField(value=input,onValueChange={input=it},modifier=Modifier.fillMaxWidth().padding(12.dp),label={Text("Статус или эмодзи")},colors=fieldColors())
                 Button(onClick={scope.launch{try{api("/api/profile/status","PATCH",JSONObject().put("statusEmoji",input));info="Статус обновлён";refresh()}catch(e:Exception){error=e.message}}},modifier=Modifier.fillMaxWidth().padding(horizontal=12.dp)){Text("Сохранить статус")}
                 listOf("notes" to "Мои заметки","support" to "Центр поддержки","admin" to "Панель управления").forEach{(k,v)->TextButton(onClick={onNavigate(k)}){Text(v,color=Accent)}}
@@ -866,7 +866,7 @@ private fun NativeFeaturePage(
             }
         }
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth(),color=Accent)
-        error?.let{Text(it,color=Color(0xFFFF7777),modifier=Modifier.padding(10.dp))}
+        error?.let{Text(it,color=Muted,modifier=Modifier.padding(10.dp))}
         info?.let{Text(it,color=Accent,modifier=Modifier.padding(10.dp))}
         if (page=="friends" || page=="feed" || page=="stories" || page=="notes" || page=="support" || page=="admin") {
             Row(Modifier.fillMaxWidth().background(Panel).navigationBarsPadding(),horizontalArrangement=Arrangement.SpaceEvenly){
@@ -882,7 +882,7 @@ private fun NativeFeaturePage(
 private fun FeatureRow(title: String, subtitle: String, action: String, onAction: () -> Unit) {
     Row(Modifier.fillMaxWidth().background(Panel,RoundedCornerShape(14.dp)).padding(12.dp),verticalAlignment=Alignment.CenterVertically){
         Column(Modifier.weight(1f)){
-            Text(title,color=Color.White,fontWeight=FontWeight.SemiBold)
+            Text(title,color=TextMain,fontWeight=FontWeight.SemiBold)
             if(subtitle.isNotBlank()) Text(subtitle,color=Muted,fontSize=12.sp)
         }
         TextButton(onClick=onAction){Text(action,color=Accent,fontSize=11.sp)}
