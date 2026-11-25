@@ -253,7 +253,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                 }
             )
         } else if (active == null && page != "chats") {
-            NativeFeaturePage(page, token ?: "", api = { path, method, body -> request(path, method, body) }, onBack = { page = "chats" })
+            NativeFeaturePage(page, token ?: "", api = { path, method, body -> request(path, method, body) }, onBack = { page = "chats" }, onNavigate = { page = it })
         } else if (active == null) {
             Column(Modifier.fillMaxSize().padding(horizontal = 18.dp)) {
                 Row(Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 18.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -465,7 +465,8 @@ private fun NativeFeaturePage(
     page: String,
     token: String,
     api: suspend (String, String, JSONObject?) -> JSONObject,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigate: (String) -> Unit
 ) {
     var rows by remember(page) { mutableStateOf<List<JSONObject>>(emptyList()) }
     var input by remember(page) { mutableStateOf("") }
@@ -570,7 +571,7 @@ private fun NativeFeaturePage(
                 Text(user.optString("displayName")+"  @"+user.optString("username"),color=Color.White,modifier=Modifier.padding(horizontal=16.dp))
                 OutlinedTextField(value=input,onValueChange={input=it},modifier=Modifier.fillMaxWidth().padding(12.dp),label={Text("Статус или эмодзи")},colors=fieldColors())
                 Button(onClick={scope.launch{try{api("/api/profile/status","PATCH",JSONObject().put("statusEmoji",input));info="Статус обновлён";refresh()}catch(e:Exception){error=e.message}}},modifier=Modifier.fillMaxWidth().padding(horizontal=12.dp)){Text("Сохранить статус")}
-                listOf("notes" to "Мои заметки","support" to "Центр поддержки","admin" to "Панель управления").forEach{(k,v)->TextButton(onClick={info="Открой раздел через меню «Ещё» в следующей версии"}){Text(v,color=Accent)}}
+                listOf("notes" to "Мои заметки","support" to "Центр поддержки","admin" to "Панель управления").forEach{(k,v)->TextButton(onClick={onNavigate(k)}){Text(v,color=Accent)}}
                 Spacer(Modifier.weight(1f))
             }
             "support" -> {
