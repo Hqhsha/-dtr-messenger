@@ -6,6 +6,10 @@ import android.os.Build
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.webkit.WebChromeClient
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.webkit.PermissionRequest
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -132,6 +136,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
     var socket by remember { mutableStateOf<Socket?>(null) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    var glassEnabled by remember { mutableStateOf(context.getSharedPreferences("dtr-native", 0).getBoolean("glass_enabled", true)) }
     var call by remember { mutableStateOf<DtrCall?>(null) }
     var callEngine by remember { mutableStateOf<DtrCallEngine?>(null) }
     var pendingCallAction by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -368,8 +373,10 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                     }
                 }
             )
+        } else if (active == null && page == "fullweb") {
+            NativeWebPage(glassEnabled = glassEnabled, onBack = { page = "settings" })
         } else if (active == null && page != "chats") {
-            NativeFeaturePage(page, token ?: "", api = { path, method, body -> request(path, method, body) }, onBack = { page = "chats" }, onNavigate = { page = it })
+            NativeFeaturePage(page, token ?: "", api = { path, method, body -> request(path, method, body) }, onBack = { page = "chats" }, onNavigate = { page = it }, glassEnabled = glassEnabled, onGlassChange = { enabled -> glassEnabled = enabled; context.getSharedPreferences("dtr-native", 0).edit().putBoolean("glass_enabled", enabled).apply() })
         } else if (active == null) {
             Column(Modifier.fillMaxSize().padding(horizontal = 18.dp)) {
                 Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -422,12 +429,12 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                     }
                 }
                 error?.let { Text(it, color = Muted, modifier = Modifier.padding(top = 8.dp)) }
-                NativeBottomNav(page = page, onSelect = { page = it })
+                NativeBottomNav(page = page, onSelect = { page = it }, glassEnabled = glassEnabled)
             }
         } else {
             Column(Modifier.fillMaxSize()) {
                 Row(
-                    Modifier.fillMaxWidth().background(Panel).padding(horizontal = 12.dp, vertical = 10.dp),
+                    Modifier.fillMaxWidth().background(if (glassEnabled) Panel.copy(alpha=.76f) else Panel).padding(horizontal = 12.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = { active = null; page = "chats" }) { Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = TextMain) }
@@ -617,7 +624,7 @@ private fun DtrLogo(size: Int) {
 }
 
 @Composable
-private fun NativeBottomNav(page: String, onSelect: (String) -> Unit) {
+private fun NativeBottomNav(page: String, onSelect: (String) -> Unit, glassEnabled: Boolean = true) {
     val items = listOf(
         Triple("friends", Icons.Filled.Groups, "Контакты"),
         Triple("feed", Icons.Filled.DynamicFeed, "Лента"),
@@ -627,7 +634,7 @@ private fun NativeBottomNav(page: String, onSelect: (String) -> Unit) {
     )
     NavigationBar(
         modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
-        containerColor = Panel,
+        containerColor = if (glassEnabled) Panel.copy(alpha = .78f) else Panel,
         contentColor = TextMain,
         tonalElevation = 0.dp
     ) {
@@ -655,7 +662,9 @@ private fun NativeFeaturePage(
     token: String,
     api: suspend (String, String, JSONObject?) -> JSONObject,
     onBack: () -> Unit,
-    onNavigate: (String) -> Unit
+    onNavigate: (String) -> Unit,
+    glassEnabled: Boolean,
+    onGlassChange: (Boolean) -> Unit
 ) {
     var rows by remember(page) { mutableStateOf<List<JSONObject>>(emptyList()) }
     var input by remember(page) { mutableStateOf("") }
@@ -718,7 +727,7 @@ private fun NativeFeaturePage(
     }
     LaunchedEffect(page) { refresh() }
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().background(Panel).padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().background(if (glassEnabled) Panel.copy(alpha=.76f) else Panel).padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = TextMain) }
             Text(title, color = TextMain, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             TextButton(onClick = { scope.launch { refresh() } }) { Text("↻", color = Accent, fontSize = 20.sp) }
@@ -815,6 +824,11 @@ private fun NativeFeaturePage(
             }
             "settings" -> {
                 val user=rows.firstOrNull()?:JSONObject()
+                Row(Modifier.fillMaxWidth().background(if (glassEnabled) Panel.copy(alpha=.76f) else Panel, RoundedCornerShape(16.dp)).padding(horizontal=16.dp, vertical=12.dp), verticalAlignment=Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) { Text("Стеклянный эффект", color=TextMain, fontWeight=FontWeight.SemiBold); Text("Прозрачные панели и мягкое размытие", color=Muted, fontSize=11.sp) }
+                    Switch(checked=glassEnabled, onCheckedChange=onGlassChange, colors=SwitchDefaults.colors(checkedThumbColor=Accent, checkedTrackColor=Accent.copy(alpha=.35f)))
+                }
+                Button(onClick={onNavigate("fullweb")}, modifier=Modifier.fillMaxWidth().padding(horizontal=12.dp, vertical=8.dp), colors=ButtonDefaults.buttonColors(containerColor=Accent), shape=RoundedCornerShape(14.dp)) { Text("Открыть полную версию DTR") }
                 Text("Аккаунт",color=Accent,fontWeight=FontWeight.Bold,modifier=Modifier.padding(16.dp))
                 Text(user.optString("displayName")+"  @"+user.optString("username"),color=TextMain,modifier=Modifier.padding(horizontal=16.dp))
                 OutlinedTextField(value=input,onValueChange={input=it},modifier=Modifier.fillMaxWidth().padding(12.dp),label={Text("Статус или эмодзи")},colors=fieldColors())
@@ -886,5 +900,55 @@ private fun FeatureRow(title: String, subtitle: String, action: String, onAction
             if(subtitle.isNotBlank()) Text(subtitle,color=Muted,fontSize=12.sp)
         }
         TextButton(onClick=onAction){Text(action,color=Accent,fontSize=11.sp)}
+    }
+}
+
+
+@Composable
+private fun NativeWebPage(glassEnabled: Boolean, onBack: () -> Unit) {
+    val context = LocalContext.current
+    val webView = remember {
+        WebView(context).apply {
+            settings.javaScriptEnabled = true
+            settings.domStorageEnabled = true
+            settings.mediaPlaybackRequiresUserGesture = false
+            settings.allowFileAccess = false
+            settings.allowContentAccess = true
+            webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView, url: String) {
+                    view.evaluateJavascript(
+                        "try{localStorage.setItem('dtr_glass',String($glassEnabled));document.querySelector('.shell')?.classList.toggle('glass-enabled',$glassEnabled)}catch(e){}",
+                        null
+                    )
+                }
+            }
+            webChromeClient = object : WebChromeClient() {
+                override fun onPermissionRequest(request: PermissionRequest) {
+                    val hasMic = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                    val hasCamera = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+                    val allowed = request.resources.filter { resource ->
+                        (resource == PermissionRequest.RESOURCE_AUDIO_CAPTURE && hasMic) ||
+                        (resource == PermissionRequest.RESOURCE_VIDEO_CAPTURE && hasCamera)
+                    }.toTypedArray()
+                    if (allowed.isNotEmpty()) request.grant(allowed) else request.deny()
+                }
+            }
+            loadUrl("https://dtr-messenger-z1ee.onrender.com")
+        }
+    }
+    DisposableEffect(webView, glassEnabled) {
+        webView.evaluateJavascript(
+            "try{localStorage.setItem('dtr_glass',String($glassEnabled));document.querySelector('.shell')?.classList.toggle('glass-enabled',$glassEnabled)}catch(e){}",
+            null
+        )
+        onDispose { }
+    }
+    Column(Modifier.fillMaxSize().background(Bg)) {
+        Row(Modifier.fillMaxWidth().background(if (glassEnabled) Panel.copy(alpha=.76f) else Panel).padding(horizontal=8.dp, vertical=6.dp), verticalAlignment=Alignment.CenterVertically) {
+            IconButton(onClick=onBack) { Icon(Icons.Default.ArrowBack, contentDescription="Назад", tint=TextMain) }
+            Text("DTR · Полная версия", color=TextMain, fontWeight=FontWeight.Bold, modifier=Modifier.weight(1f))
+            TextButton(onClick={webView.reload()}) { Text("Обновить", color=Accent) }
+        }
+        AndroidView(factory={webView}, modifier=Modifier.weight(1f).fillMaxWidth())
     }
 }
