@@ -105,15 +105,13 @@ jobs:
         env:
           STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           test -n "$STORE_PASSWORD" || (echo "Missing ANDROID_KEYSTORE_PASSWORD" && exit 1)
           test -n "$KEY_ALIAS" || (echo "Missing ANDROID_KEY_ALIAS" && exit 1)
-          test -n "$KEY_PASSWORD" || (echo "Missing ANDROID_KEY_PASSWORD" && exit 1)
           npx cap sync android
           cd android
           chmod +x ./gradlew
-          ./gradlew assembleRelease -Pandroid.injected.signing.store.file="$RUNNER_TEMP/dtr-release.jks" -Pandroid.injected.signing.store.password="$STORE_PASSWORD" -Pandroid.injected.signing.key.alias="$KEY_ALIAS" -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+          ./gradlew assembleRelease -Pandroid.injected.signing.store.file="$RUNNER_TEMP/dtr-release.jks" -Pandroid.injected.signing.store.password="$STORE_PASSWORD" -Pandroid.injected.signing.key.alias="$KEY_ALIAS" -Pandroid.injected.signing.key.password="$STORE_PASSWORD"
 
       - name: Upload APK build artifact
         uses: actions/upload-artifact@v4
