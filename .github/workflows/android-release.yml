@@ -101,6 +101,16 @@ jobs:
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/dtr-release.jks"
           test -s "$RUNNER_TEMP/dtr-release.jks"
 
+      - name: Validate signing credentials
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          test -n "$STORE_PASSWORD" || (echo "Missing ANDROID_KEYSTORE_PASSWORD" && exit 1)
+          test -n "$KEY_ALIAS" || (echo "Missing ANDROID_KEY_ALIAS" && exit 1)
+          keytool -list -keystore "$RUNNER_TEMP/dtr-release.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" -v
+          echo "Signing keystore and alias validated."
+
       - name: Build signed APK
         env:
           STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
