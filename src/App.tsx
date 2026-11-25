@@ -179,7 +179,7 @@ export default function App() {
   const [animations,setAnimations]=useState(localStorage.getItem("dtr_animations")!=="false");
   const [squareAvatars,setSquareAvatars]=useState(localStorage.getItem("dtr_square_avatars")==="true");
 
-  useEffect(()=>{if(themeMode!=="system")return;const media=window.matchMedia("(prefers-color-scheme: dark)");const apply=()=>{void changeTheme(media.matches?"dark":"light","system")};media.addEventListener("change",apply);return()=>media.removeEventListener("change",apply);},[themeMode]);
+  useEffect(()=>{if(themeMode!=="system")return;const media=window.matchMedia("(prefers-color-scheme: dark)");const apply=()=>{void changeTheme(media.matches?"dark":"light","system")};apply();media.addEventListener("change",apply);return()=>media.removeEventListener("change",apply);},[themeMode]);
   const [notes,setNotes] = useState<any[]>([]);
   const [noteTitle,setNoteTitle] = useState("");
   const [noteBody,setNoteBody] = useState("");
