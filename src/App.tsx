@@ -40,7 +40,7 @@ export default function App() {
   const logoClicksRef=useRef(0);
   const versionClicksRef=useRef(0);
   const konamiRef=useRef<string[]>([]);
-  const easterToastTimerRef=useRef<ReturnType<typeof setTimeout>|null>(null);
+  const easterToastTimerRef=useRef<number|null>(null);
   const showEasterEgg=(message:string)=>{
     setEasterToast(message);
     if(easterToastTimerRef.current)window.clearTimeout(easterToastTimerRef.current);
