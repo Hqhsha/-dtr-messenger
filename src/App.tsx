@@ -48,6 +48,7 @@ export default function App() {
   const [messageMenuId,setMessageMenuId]=useState<string|null>(null);
   const [replyTarget,setReplyTarget]=useState<Message|null>(null);
   const chatLoadSequence=useRef(0);
+  const chatListRequestSequence=useRef(0);
   useEffect(()=>{if(!messageMenuId)return;const closeOutside=(event:MouseEvent)=>{const target=event.target as Element|null;if(!target?.closest(".message-actions"))setMessageMenuId(null);};const closeEscape=(event:KeyboardEvent)=>{if(event.key==="Escape")setMessageMenuId(null);};document.addEventListener("pointerdown",closeOutside);document.addEventListener("keydown",closeEscape);return()=>{document.removeEventListener("pointerdown",closeOutside);document.removeEventListener("keydown",closeEscape);};},[messageMenuId]);
   useEffect(()=>{setMessageMenuId(null);},[active?.chatId]);
 
@@ -149,7 +150,7 @@ export default function App() {
     };
   },[profileTarget,editOpen,groupOpen,groupInfoOpen]);
 
-  async function refreshChats(){ if(!token)return; try{const d=await api("/chats",token);setChats(d.chats||[]);}catch(e:any){setError(e.message)} }
+  async function refreshChats(){ if(!token)return;const requestId=++chatListRequestSequence.current;try{const d=await api("/chats",token);if(requestId!==chatListRequestSequence.current)return;setChats(d.chats||[]);}catch(e:any){if(requestId===chatListRequestSequence.current)setError(e.message)} }
   useEffect(()=>{ if(!token)return; api("/me",token).then(d=>{setMe(d.user);setTheme(d.user.theme==="light"?"light":"dark");localStorage.setItem("dtr_theme",d.user.theme==="light"?"light":"dark");setEditName(d.user.displayName);setEditBio(d.user.bio||"");setEditAge(d.user.age===null?"":String(d.user.age));setEditAgePublic(Boolean(d.user.agePublic));}).catch(()=>logout()); refreshChats(); return ()=>{socket?.disconnect()}; },[token,socket]);
   useEffect(()=>{document.documentElement.dataset.theme=theme;localStorage.setItem("dtr_theme",theme);},[theme]);
   useEffect(()=>{if(!socket)return;const presence=(d:any)=>{const update=(u:User|null)=>u&&u.id===String(d.userId)?{...u,online:Boolean(d.online),lastSeenAt:d.lastSeenAt||null}:u;setMe(old=>update(old));setProfileTarget(old=>update(old));setChats(old=>old.map(c=>({...c,user:update(c.user),members:c.members.map(m=>update(m) as User)})));};const role=()=>{if(me)api("/me",token).then(d=>setMe(d.user)).catch(()=>{});};socket.on("presence:update",presence);socket.on("user:role-updated",role);socket.on("support:refresh",()=>{if(page==="support")loadTickets();});const supportMessage=(d:any)=>{if(selectedTicket&&String(selectedTicket.id)===String(d.ticketId))setSupportMessages(old=>old.some(m=>String(m.id)===String(d.message.id))?old:[...old,d.message]);};socket.on("support:message",supportMessage);return()=>{socket.off("presence:update",presence);socket.off("user:role-updated",role);socket.off("support:refresh");socket.off("support:message",supportMessage);};},[socket,me,token,page,selectedTicket]);
