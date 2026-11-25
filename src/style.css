@@ -337,3 +337,7 @@ button{transition:background-color .12s ease,color .12s ease}
 
 /* Empty state for filtered chat list */
 .chat-filter-empty{display:flex;align-items:center;justify-content:center;min-height:100px;margin:8px 12px;padding:18px;text-align:center;border:1px dashed #304050;border-radius:14px;color:#8fa2b2;font-size:13px;line-height:1.45;background:#ffffff04}
+
+
+/* Friend search guidance and loading state */
+.search-hint{margin:8px 14px;padding:10px 12px;border-radius:10px;background:#ffffff05;color:#8295a5;font-size:12px;line-height:1.45}.search-loading{display:flex;align-items:center;gap:8px;color:#9db8ca}.search-loading::before{content:"";width:12px;height:12px;flex:none;border:2px solid #3b5264;border-top-color:#72b9ee;border-radius:50%;animation:dtrSearchSpin .7s linear infinite}@keyframes dtrSearchSpin{to{transform:rotate(360deg)}}
