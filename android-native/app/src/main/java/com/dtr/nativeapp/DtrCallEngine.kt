@@ -37,6 +37,7 @@ class DtrCallEngine(
     var cameraEnabled: Boolean = videoEnabled
         private set
     private var disposed = false
+    private val pendingIceCandidates = mutableListOf<IceCandidate>()
 
     init {
         PeerConnectionFactory.initialize(
@@ -150,6 +151,7 @@ class DtrCallEngine(
         val remote = SessionDescription(type, offer.optString("sdp"))
         peer.setRemoteDescription(object : SdpObserver {
             override fun onSetSuccess() {
+                flushPendingIce()
                 peer.createAnswer(object : SdpObserver {
                     override fun onCreateSuccess(answer: SessionDescription?) {
                         if (answer == null) { onStatus("failed"); return }
@@ -179,7 +181,7 @@ class DtrCallEngine(
     fun onAnswer(answer: JSONObject) {
         val type = SessionDescription.Type.fromCanonicalForm(answer.optString("type", "answer"))
         peer.setRemoteDescription(object : SdpObserver {
-            override fun onSetSuccess() { onStatus("connecting") }
+            override fun onSetSuccess() { flushPendingIce(); onStatus("connecting") }
             override fun onSetFailure(error: String?) { onStatus("failed") }
             override fun onCreateSuccess(value: SessionDescription?) {}
             override fun onCreateFailure(error: String?) {}
@@ -192,7 +194,13 @@ class DtrCallEngine(
         if (sdp.isBlank()) return
         val mid = if (candidate.isNull("sdpMid")) null else candidate.optString("sdpMid")
         val line = candidate.optInt("sdpMLineIndex", 0)
-        peer.addIceCandidate(IceCandidate(mid, line, sdp))
+        val item = IceCandidate(mid, line, sdp)
+        if (peer.remoteDescription == null) pendingIceCandidates.add(item) else peer.addIceCandidate(item)
+    }
+
+    private fun flushPendingIce() {
+        pendingIceCandidates.toList().forEach { peer.addIceCandidate(it) }
+        pendingIceCandidates.clear()
     }
 
     fun setMicEnabled(enabled: Boolean) {
