@@ -1,0 +1,72 @@
+name: Publish DTR Native Android Release
+
+on:
+  push:
+    tags:
+      - "native-v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android-native
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Set native version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#native-v}"
+          else
+            VERSION="1.2.0"
+          fi
+          VERSION_CODE="$(python3 -c 'import sys; a=list(map(int,sys.argv[1].split("."))); print(a[0]*1000000+a[1]*1000+a[2])' "$VERSION")"
+          echo "NATIVE_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "NATIVE_VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+      - name: Decode signing key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64" || (echo "Missing ANDROID_KEYSTORE_BASE64" && exit 1)
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/dtr-native.jks"
+          test -s "$RUNNER_TEMP/dtr-native.jks"
+      - name: Build signed native APK
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          test -n "$STORE_PASSWORD" && test -n "$KEY_ALIAS" && test -n "$KEY_PASSWORD"
+          gradle assembleRelease \
+            -PnativeVersionCode="$NATIVE_VERSION_CODE" \
+            -PnativeVersionName="$NATIVE_VERSION-native" \
+            -Pandroid.injected.signing.store.file="$RUNNER_TEMP/dtr-native.jks" \
+            -Pandroid.injected.signing.store.password="$STORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+      - name: Upload signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: DTR-Native-Android-Release
+          path: android-native/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
+      - name: Publish native APK release
+        if: startsWith(github.ref, 'refs/tags/native-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: DTR Native ${{ env.NATIVE_VERSION }}
+          generate_release_notes: true
+          files: android-native/app/build/outputs/apk/release/app-release.apk
