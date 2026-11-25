@@ -274,7 +274,10 @@ app.get("/api/chats/:chatId/messages", auth, async (req: AuthedRequest, res) => 
   const member = await pool.query("SELECT 1 FROM chat_members WHERE chat_id=$1 AND user_id=$2", [String(req.params.chatId), req.userId]);
   if (!member.rowCount) return res.status(403).json({ error: "Нет доступа к чату" });
   const q = await pool.query(`SELECT m.id,m.body,m.message_type,m.created_at,m.sender_id,m.edited_at,u.username,u.display_name,(SELECT MAX(cm2.last_read_at) FROM chat_members cm2 WHERE cm2.chat_id=m.chat_id AND cm2.user_id<>$2) AS peer_read_at,(SELECT json_agg(json_build_object('emoji',r.emoji,'count',r.count,'mine',r.mine)) FROM (SELECT emoji,COUNT(*)::int AS count,BOOL_OR(user_id=$2) AS mine FROM message_reactions WHERE message_id=m.id GROUP BY emoji) r) AS reactions FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.chat_id=$1 ORDER BY m.created_at ASC LIMIT 200`, [String(req.params.chatId),req.userId]);
-  await pool.query("UPDATE chat_members SET last_read_at=NOW() WHERE chat_id=$1 AND user_id=$2", [String(req.params.chatId), req.userId]);
+  const readUpdate=await pool.query("UPDATE chat_members SET last_read_at=NOW() WHERE chat_id=$1 AND user_id=$2 RETURNING last_read_at", [String(req.params.chatId), req.userId]);
+  const readAt=readUpdate.rows[0]?.last_read_at||new Date().toISOString();
+  const peers=await pool.query("SELECT user_id FROM chat_members WHERE chat_id=$1 AND user_id<>$2",[String(req.params.chatId),req.userId]);
+  for(const peer of peers.rows)io.to(`user:${peer.user_id}`).emit("chat:read",{chatId:String(req.params.chatId),userId:String(req.userId),readAt});
   res.json({ messages: q.rows.map(m => ({ id:String(m.id), body:m.body, messageType:m.message_type, mediaUrl:m.message_type === "text" ? null : `/api/messages/${m.id}/media`, createdAt:m.created_at, senderId:String(m.sender_id), username:m.username, displayName:m.display_name, editedAt:m.edited_at||null, peerReadAt:m.peer_read_at||null, reactions:m.reactions||[] })) });
 });
 app.post("/api/chats/:chatId/messages", auth, async (req: AuthedRequest, res) => {
