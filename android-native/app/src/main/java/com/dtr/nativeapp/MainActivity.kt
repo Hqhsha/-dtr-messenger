@@ -80,6 +80,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken: () -> Unit) {
     var token by remember { mutableStateOf(savedToken) }
+    var page by remember { mutableStateOf("chats") }
     var me by remember { mutableStateOf<DtrUser?>(null) }
     var chats by remember { mutableStateOf<List<DtrChat>>(emptyList()) }
     var active by remember { mutableStateOf<DtrChat?>(null) }
@@ -251,6 +252,8 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                     }
                 }
             )
+        } else if (active == null && page != "chats") {
+            NativeFeaturePage(page, token ?: "", api = { path, method, body -> request(path, method, body) }, onBack = { page = "chats" })
         } else if (active == null) {
             Column(Modifier.fillMaxSize().padding(horizontal = 18.dp)) {
                 Row(Modifier.fillMaxWidth().padding(top = 22.dp, bottom = 18.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -268,7 +271,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                     items(chats, key = { it.id }) { chat ->
                         Row(
                             Modifier.fillMaxWidth().background(Panel, RoundedCornerShape(18.dp))
-                                .clickable { active = chat }.padding(15.dp),
+                                .clickable { active = chat; page = "chats" }.padding(15.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(Modifier.size(48.dp).background(Accent.copy(alpha = .18f), CircleShape), contentAlignment = Alignment.Center) {
@@ -285,6 +288,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                     }
                 }
                 error?.let { Text(it, color = Color(0xFFFF7777), modifier = Modifier.padding(top = 8.dp)) }
+                NativeBottomNav(page = page, onSelect = { page = it })
             }
         } else {
             Column(Modifier.fillMaxSize()) {
@@ -292,7 +296,7 @@ private fun DtrApp(savedToken: String?, saveToken: (String) -> Unit, clearToken:
                     Modifier.fillMaxWidth().background(Panel).padding(horizontal = 12.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = { active = null }) { Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = Color.White) }
+                    IconButton(onClick = { active = null; page = "chats" }) { Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = Color.White) }
                     Column(Modifier.weight(1f)) {
                         Text(active!!.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
                         Text("DTR • чат", color = Muted, fontSize = 11.sp)
@@ -442,3 +446,165 @@ private fun fieldColors() = OutlinedTextFieldDefaults.colors(
     focusedLabelColor = Accent, unfocusedLabelColor = Muted,
     focusedContainerColor = Panel, unfocusedContainerColor = Panel
 )
+
+
+@Composable
+private fun NativeBottomNav(page: String, onSelect: (String) -> Unit) {
+    val items = listOf("friends" to "Друзья", "feed" to "Лента", "chats" to "Чаты", "stories" to "Истории", "settings" to "Ещё")
+    Row(Modifier.fillMaxWidth().background(Panel).navigationBarsPadding().padding(horizontal = 3.dp, vertical = 7.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+        items.forEach { (key, label) ->
+            TextButton(onClick = { onSelect(key) }) {
+                Text(label, color = if (page == key) Accent else Muted, fontSize = 11.sp, fontWeight = if (page == key) FontWeight.Bold else FontWeight.Normal)
+            }
+        }
+    }
+}
+
+@Composable
+private fun NativeFeaturePage(
+    page: String,
+    token: String,
+    api: suspend (String, String, JSONObject?) -> JSONObject,
+    onBack: () -> Unit
+) {
+    var rows by remember(page) { mutableStateOf<List<JSONObject>>(emptyList()) }
+    var input by remember(page) { mutableStateOf("") }
+    var secondary by remember(page) { mutableStateOf("") }
+    var searchResults by remember(page) { mutableStateOf<List<JSONObject>>(emptyList()) }
+    var busy by remember(page) { mutableStateOf(false) }
+    var error by remember(page) { mutableStateOf<String?>(null) }
+    var info by remember(page) { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    val title = when (page) {
+        "friends" -> "Друзья и контакты"
+        "feed" -> "Общая лента"
+        "stories" -> "Истории"
+        "notes" -> "Мои заметки"
+        "settings" -> "Настройки"
+        "support" -> "Поддержка DTR"
+        "admin" -> "Панель управления"
+        else -> "DTR"
+    }
+    suspend fun refresh() {
+        busy = true; error = null
+        try {
+            val path = when (page) {
+                "friends" -> "/api/contacts"
+                "feed" -> "/api/feed"
+                "stories" -> "/api/stories"
+                "notes" -> "/api/notes"
+                "support" -> "/api/support/tickets"
+                "admin" -> "/api/admin/users"
+                else -> "/api/me"
+            }
+            val data = api(path, "GET", null)
+            val key = when (page) {
+                "friends" -> "friends"
+                "feed" -> "posts"
+                "stories" -> "stories"
+                "notes" -> "notes"
+                "support" -> "tickets"
+                "admin" -> "users"
+                else -> "user"
+            }
+            val arr = data.optJSONArray(key)
+            rows = if (arr != null) (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }
+                else if (page == "settings") listOf(data.optJSONObject("user") ?: JSONObject())
+                else emptyList()
+        } catch (e: Exception) { error = e.message ?: "Не удалось загрузить раздел" }
+        finally { busy = false }
+    }
+    LaunchedEffect(page) { refresh() }
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().background(Panel).padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = Color.White) }
+            Text(title, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            TextButton(onClick = { scope.launch { refresh() } }) { Text("↻", color = Accent, fontSize = 20.sp) }
+        }
+        when (page) {
+            "friends" -> {
+                OutlinedTextField(value = input, onValueChange = { input = it }, modifier = Modifier.fillMaxWidth().padding(12.dp), label = { Text("Найти по логину") }, singleLine = true, colors = fieldColors(), trailingIcon = {
+                    TextButton(onClick = { scope.launch { try { val d=api("/api/users/search?q="+android.net.Uri.encode(input.trim()),"GET",null); val a=d.optJSONArray("users")?:JSONArray(); searchResults=(0 until a.length()).mapNotNull{a.optJSONObject(it)} } catch(e:Exception){error=e.message} } }) { Text("Найти", color=Accent) }
+                })
+                if (searchResults.isNotEmpty()) Text("Результаты поиска", color=Accent, modifier=Modifier.padding(horizontal=16.dp))
+                LazyColumn(Modifier.weight(1f), contentPadding=PaddingValues(12.dp), verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                    items(searchResults, key={it.optString("id")}) { u ->
+                        FeatureRow(u.optString("displayName",u.optString("username")), "@"+u.optString("username"), "Добавить") {
+                            scope.launch { try { api("/api/friends/request","POST",JSONObject().put("userId",u.optString("id"))); info="Заявка отправлена"; searchResults=emptyList(); refresh() } catch(e:Exception){error=e.message} }
+                        }
+                    }
+                    items(rows, key={it.optString("id")}) { u -> FeatureRow(u.optString("displayName"), "@"+u.optString("username"), "Открыть профиль") { info="Контакт: @"+u.optString("username") } }
+                }
+            }
+            "feed" -> {
+                OutlinedTextField(value=input,onValueChange={input=it},modifier=Modifier.fillMaxWidth().padding(12.dp),label={Text("Написать публикацию")},minLines=2,colors=fieldColors())
+                Button(onClick={scope.launch{if(input.isNotBlank())try{api("/api/feed","POST",JSONObject().put("body",input));input="";refresh()}catch(e:Exception){error=e.message}}},modifier=Modifier.fillMaxWidth().padding(horizontal=12.dp),enabled=input.isNotBlank()) { Text("Опубликовать") }
+                LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(12.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){
+                    items(rows,key={it.optString("id")}){p->
+                        Column(Modifier.fillMaxWidth().background(Panel,RoundedCornerShape(16.dp)).padding(14.dp)){
+                            Text(p.optString("display_name",p.optString("username")),color=Accent,fontWeight=FontWeight.Bold)
+                            Text(p.optString("body"),color=Color.White,modifier=Modifier.padding(vertical=10.dp))
+                            TextButton(onClick={scope.launch{try{api("/api/feed/"+p.optString("id")+"/like","POST",JSONObject());refresh()}catch(e:Exception){error=e.message}}}){Text((if(p.optBoolean("liked"))"♥ " else "♡ ")+p.optInt("likes")+" · "+p.optInt("comments")+" комментариев",color=Accent)}
+                        }
+                    }
+                }
+            }
+            "stories" -> {
+                OutlinedTextField(value=input,onValueChange={input=it},modifier=Modifier.fillMaxWidth().padding(12.dp),label={Text("Текст истории")},colors=fieldColors())
+                Button(onClick={scope.launch{if(input.isNotBlank())try{api("/api/stories","POST",JSONObject().put("body",input));input="";refresh()}catch(e:Exception){error=e.message}}},modifier=Modifier.fillMaxWidth().padding(horizontal=12.dp),enabled=input.isNotBlank()){Text("Опубликовать историю")}
+                LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+                    items(rows,key={it.optString("id")}){s->FeatureRow(s.optString("display_name",s.optString("username")),s.optString("body").ifBlank{"Медиа-история"}, "История"){info="Медиа и просмотр историй появятся в следующем обновлении"}}
+                }
+            }
+            "notes" -> {
+                OutlinedTextField(value=input,onValueChange={input=it},modifier=Modifier.fillMaxWidth().padding(horizontal=12.dp, vertical=6.dp),label={Text("Заголовок")},singleLine=true,colors=fieldColors())
+                OutlinedTextField(value=secondary,onValueChange={secondary=it},modifier=Modifier.fillMaxWidth().padding(horizontal=12.dp, vertical=6.dp),label={Text("Текст заметки")},minLines=2,colors=fieldColors())
+                Button(onClick={scope.launch{try{api("/api/notes","POST",JSONObject().put("title",input).put("body",secondary));input="";secondary="";refresh()}catch(e:Exception){error=e.message}}},modifier=Modifier.fillMaxWidth().padding(horizontal=12.dp),enabled=input.isNotBlank()||secondary.isNotBlank()){Text("Сохранить заметку")}
+                LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+                    items(rows,key={it.optString("id")}){n->FeatureRow(n.optString("title").ifBlank{"Без названия"},n.optString("body"),"Удалить"){scope.launch{try{api("/api/notes/"+n.optString("id"),"DELETE",null);refresh()}catch(e:Exception){error=e.message}}}}
+                }
+            }
+            "settings" -> {
+                val user=rows.firstOrNull()?:JSONObject()
+                Text("Аккаунт",color=Accent,fontWeight=FontWeight.Bold,modifier=Modifier.padding(16.dp))
+                Text(user.optString("displayName")+"  @"+user.optString("username"),color=Color.White,modifier=Modifier.padding(horizontal=16.dp))
+                OutlinedTextField(value=input,onValueChange={input=it},modifier=Modifier.fillMaxWidth().padding(12.dp),label={Text("Статус или эмодзи")},colors=fieldColors())
+                Button(onClick={scope.launch{try{api("/api/profile/status","PATCH",JSONObject().put("statusEmoji",input));info="Статус обновлён";refresh()}catch(e:Exception){error=e.message}}},modifier=Modifier.fillMaxWidth().padding(horizontal=12.dp)){Text("Сохранить статус")}
+                listOf("notes" to "Мои заметки","support" to "Центр поддержки","admin" to "Панель управления").forEach{(k,v)->TextButton(onClick={info="Открой раздел через меню «Ещё» в следующей версии"}){Text(v,color=Accent)}}
+                Spacer(Modifier.weight(1f))
+            }
+            "support" -> {
+                OutlinedTextField(value=input,onValueChange={input=it},modifier=Modifier.fillMaxWidth().padding(12.dp),label={Text("Тема обращения")},singleLine=true,colors=fieldColors())
+                OutlinedTextField(value=secondary,onValueChange={secondary=it},modifier=Modifier.fillMaxWidth().padding(horizontal=12.dp),label={Text("Сообщение")},minLines=2,colors=fieldColors())
+                Button(onClick={scope.launch{try{api("/api/support/tickets","POST",JSONObject().put("subject",input).put("body",secondary).put("category","question"));input="";secondary="";info="Обращение создано";refresh()}catch(e:Exception){error=e.message}}},modifier=Modifier.fillMaxWidth().padding(12.dp),enabled=input.isNotBlank()&&secondary.isNotBlank()){Text("Отправить в поддержку")}
+                LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(12.dp)){items(rows,key={it.optString("id")}){t->FeatureRow(t.optString("subject"),t.optString("status")+" · "+t.optString("last_message"),"Обновить"){scope.launch{refresh()}}}}
+            }
+            "admin" -> {
+                LazyColumn(Modifier.weight(1f),contentPadding=PaddingValues(12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+                    items(rows,key={it.optString("id")}){u->FeatureRow(u.optString("displayName"),"@"+u.optString("username")+" · "+u.optString("role"),"Пользователь"){info="Управление ролями пока не добавлено в нативный интерфейс"}}
+                }
+            }
+        }
+        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth(),color=Accent)
+        error?.let{Text(it,color=Color(0xFFFF7777),modifier=Modifier.padding(10.dp))}
+        info?.let{Text(it,color=Accent,modifier=Modifier.padding(10.dp))}
+        if (page=="friends" || page=="feed" || page=="stories" || page=="notes" || page=="support" || page=="admin") {
+            Row(Modifier.fillMaxWidth().background(Panel).navigationBarsPadding(),horizontalArrangement=Arrangement.SpaceEvenly){
+                TextButton(onClick=onBack){Text("К чатам",color=Muted)}
+                TextButton(onClick={scope.launch{refresh()}}){Text("Обновить",color=Accent)}
+                if(page=="settings"){TextButton(onClick={onBack}){Text("Готово",color=Accent)}}
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeatureRow(title: String, subtitle: String, action: String, onAction: () -> Unit) {
+    Row(Modifier.fillMaxWidth().background(Panel,RoundedCornerShape(14.dp)).padding(12.dp),verticalAlignment=Alignment.CenterVertically){
+        Column(Modifier.weight(1f)){
+            Text(title,color=Color.White,fontWeight=FontWeight.SemiBold)
+            if(subtitle.isNotBlank()) Text(subtitle,color=Muted,fontSize=12.sp)
+        }
+        TextButton(onClick=onAction){Text(action,color=Accent,fontSize=11.sp)}
+    }
+}
