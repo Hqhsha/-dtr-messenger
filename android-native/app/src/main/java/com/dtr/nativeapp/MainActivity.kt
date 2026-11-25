@@ -55,10 +55,10 @@ import io.socket.client.Socket
 import java.util.concurrent.TimeUnit
 
 private const val BASE_URL = "https://dtr-messenger-z1ee.onrender.com"
-private val Bg = Color(0xFF0D0D12)
-private val Panel = Color(0xFF171720)
-private val Accent = Color(0xFF9270FF)
-private val Muted = Color(0xFF9B9AA8)
+private val Bg = Color(0xFF17181D)
+private val Panel = Color(0xFF24252C)
+private val Accent = Color(0xFF8B849F)
+private val Muted = Color(0xFFA5A6B1)
 private val http = OkHttpClient.Builder()
     .connectTimeout(20, TimeUnit.SECONDS)
     .readTimeout(30, TimeUnit.SECONDS)
