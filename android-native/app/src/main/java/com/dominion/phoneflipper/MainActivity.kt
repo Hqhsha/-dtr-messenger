@@ -108,40 +108,60 @@ private fun PhoneFlipper(saved: String?, persist: (String) -> Unit) {
 
     val current = stock.firstOrNull { it.id == selected } ?: stock.firstOrNull()
     MaterialTheme(colorScheme = darkColorScheme(primary = accent, background = bg, surface = panel, onSurface = ink)) {
-        Scaffold(containerColor = bg, bottomBar = {
-            NavigationBar(containerColor = Color(0xFF12111D)) {
-                listOf("Дом", "TelBuy", "Диагностика", "Склад").forEach { label ->
-                    NavigationBarItem(
-                        selected = tab == label,
-                        onClick = { tab = label; checked = emptySet() },
-                        icon = { Text(when (label) { "Дом" -> "⌂"; "TelBuy" -> "↗"; "Диагностика" -> "⌁"; else -> "▣" }, color = if (tab == label) accent else muted) },
-                        label = { Text(label, fontSize = 10.sp) }
-                    )
-                }
-            }
-        }) { padding ->
+        Scaffold(containerColor = bg) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
-                Column(Modifier.fillMaxWidth().background(Color(0xFF211A38)).padding(16.dp)) {
-                    Text("PHONE FLIPPER", color = ink, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
-                    Text("Уровень $level   •   $cash ₽", color = Color(0xFFFFD66B), fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                    LinearProgressIndicator(progress = { (xp / (level * 100f)).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), color = accent)
+                Row(Modifier.fillMaxWidth().background(Color(0xFF090910)).padding(horizontal = 18.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("10:24", color = ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text("●  Wi-Fi  ▰", color = muted, fontSize = 12.sp)
+                }
+                Row(Modifier.fillMaxWidth().background(Color(0xFF171323)).clickable { tab = "Дом" }.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(if (tab == "Дом") "◉" else "‹", color = accent, fontSize = 24.sp, modifier = Modifier.clickable { tab = "Дом" })
+                        Text(if (tab == "Дом") "PHONE FLIPPER" else tab, color = ink, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    }
+                    Text("$cash ₽", color = Color(0xFFFFD66B), fontWeight = FontWeight.Bold)
                 }
                 when (tab) {
-                    "Дом" -> LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        item { CardBox {
-                            Text("PHONE • главный экран", color = accent, fontWeight = FontWeight.Bold)
-                            Text("Баланс $cash ₽", color = ink, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                            Text(note, color = muted)
-                            Text("Приложения", color = ink, fontWeight = FontWeight.Bold)
-                            listOf("AppInst" to "⬇", "TelBuy" to "🛍", "Пончики" to "🍩", "Диагностика" to "⌁", "Склад" to "▣").forEach { (app, icon) ->
-                                Row(Modifier.fillMaxWidth().background(Color(0xFF25213A), RoundedCornerShape(12.dp)).clickable { tab = app }.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Text(icon, fontSize = 24.sp); Text(app, color = ink, fontWeight = FontWeight.SemiBold)
+                    "Дом" -> Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF272044), Color(0xFF11101D), Color(0xFF090910)))).padding(horizontal = 20.dp, vertical = 18.dp), verticalArrangement = Arrangement.SpaceBetween) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("ПОНЕДЕЛЬНИК, 26 НОЯБРЯ", color = Color(0xFFBFB4E8), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text("10:24", color = ink, fontSize = 54.sp, fontWeight = FontWeight.Light)
+                            Text("Уровень $level  •  $xp / ${level * 100} XP", color = muted, fontSize = 13.sp)
+                            LinearProgressIndicator(progress = { (xp / (level * 100f)).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp), color = accent)
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                            val apps = listOf(
+                                Triple("TelBuy", "🛍", "TelBuy"), Triple("AppInst", "⬇", "AppInst"), Triple("Пончики", "🍩", "Donut Club"),
+                                Triple("Диагностика", "⌁", "Phone Check"), Triple("Склад", "▣", "Склад"), Triple("Часы", "◷", "Часы")
+                            )
+                            apps.chunked(3).forEach { rowApps ->
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                    rowApps.forEach { app ->
+                                        Column(Modifier.weight(1f).clickable { tab = app.first }.padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                            Box(Modifier.size(58.dp).background(Brush.linearGradient(listOf(accent.copy(alpha = .95f), Color(0xFF42336D))), RoundedCornerShape(17.dp)), contentAlignment = Alignment.Center) {
+                                                Text(app.second, color = Color.White, fontSize = 26.sp)
+                                            }
+                                            Text(app.third, color = ink, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                                        }
+                                    }
                                 }
                             }
-                            Text("Продаж: $sales • Телефонов: ${stock.size} • Пончиков: $donuts", color = muted)
-                        } }
-                        item { CardBox { Text("Быстрый старт", color = ink, fontSize = 18.sp, fontWeight = FontWeight.Bold); Button(onClick = { tab = "TelBuy" }, modifier = Modifier.fillMaxWidth()) { Text("Открыть рынок") } } }
-                        item { CardBox { Text("Как играть", color = ink, fontWeight = FontWeight.Bold); Text("Покупай телефоны дешевле рыночной цены, проверяй 4 узла, ремонтируй и продавай с прибылью.", color = muted) } }
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(note, color = muted, fontSize = 12.sp, maxLines = 2)
+                            Row(Modifier.fillMaxWidth().background(Color(0xFF2B2544).copy(alpha = .9f), RoundedCornerShape(24.dp)).padding(10.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                listOf("TelBuy", "AppInst", "Пончики", "Склад").forEach { app ->
+                                    Text(when(app) { "TelBuy" -> "🛍"; "AppInst" -> "⬇"; "Пончики" -> "🍩"; else -> "▣" }, fontSize = 23.sp, modifier = Modifier.clickable { tab = app })
+                                }
+                            }
+                            Text("Продаж: $sales  •  Телефонов: ${stock.size}  •  Пончиков: $donuts", color = muted, fontSize = 11.sp)
+                        }
+                    }
+                    "Часы" -> Column(Modifier.fillMaxSize().background(bg).padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Spacer(Modifier.height(60.dp))
+                        Text("10:24", color = ink, fontSize = 64.sp, fontWeight = FontWeight.Light)
+                        Text("26 ноября • Понедельник", color = muted, fontSize = 16.sp)
+                        Text("Телефон • уровень $level", color = accent, fontSize = 14.sp)
                     }
                     "TelBuy" -> LazyColumn(contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         item { Text("Свежие объявления", color = ink, fontSize = 20.sp, fontWeight = FontWeight.Bold) }
@@ -189,7 +209,7 @@ private fun PhoneFlipper(saved: String?, persist: (String) -> Unit) {
                         } }
                     }
                     "Диагностика" -> if (current == null) {
-                        EmptyPanel("Склад пуст", "Купи первый телефон на рынке.") { tab = "Рынок" }
+                        EmptyPanel("Склад пуст", "Купи первый телефон на рынке.") { tab = "TelBuy" }
                     } else LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         item { CardBox { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             PhoneArt(current.model, Modifier.width(72.dp).height(124.dp))
